@@ -18,7 +18,9 @@ app.use(express.static('public')); // all the images and other assets will be pu
 
 // import routes
 import healthCheckRouter from './routes/healthCheck.routes.js';
+import userRouter from './routes/user.routes.js';
 
 app.use('/api/v1/healthcheck', healthCheckRouter);
+app.use('/api/v1/user', userRouter);
 
 export { app };

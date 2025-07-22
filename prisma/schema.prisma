@@ -15,28 +15,32 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  username      String?
-  password      String?
-  role          String   @default("USER")
-  isAnonymous   Boolean  @default(false)
-  profilePicURL String?  @default("./user_profile.png")
-  bio           String?  @default("")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String    @id @default(cuid())
+  email           String    @unique
+  isEmailVerified Boolean   @default(false)
+  username        String?
+  password        String?
+  gender          String?
+  dateOfBirth     DateTime?
+  role            Role      @default(USER)
+  isAnonymous     Boolean   @default(false)
+  profilePicURL   String?   @default("./user_profile.png")
+  bio             String?   @default("")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   posts         Post[]
   comments      Comment[]
-  sessions1     ChatSession[]    @relation("User1Sessions")
-  sessions2     ChatSession[]    @relation("User2Sessions")
+  sessions1     ChatSession[]     @relation("User1Sessions")
+  sessions2     ChatSession[]     @relation("User2Sessions")
   messages      ChatMessage[]
   appointments  Appointment[]
   doctorProfile DoctorProfile?
   journals      Journal[]
   notifications Notification[]
   preferences   UserPreferences?
-  adminActions  AdminAction[]    @relation("AdminActions")
+  adminActions  AdminAction[]     @relation("AdminActions")
+  otps          OTPVerification[]
 }
 
 model Post {
@@ -168,9 +172,32 @@ model UserPreferences {
   match_preference String
 }
 
+model OTPVerification {
+  id      String @id @default(cuid())
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id String
+
+  otp_code   String   @db.VarChar(6)
+  otp_type   OTPType
+  expires_at DateTime
+  is_used    Boolean  @default(false)
+  attempts   Int      @default(0)
+  created_at DateTime @default(now())
+
+  @@index([user_id, otp_type])
+  @@index([expires_at])
+}
+
 enum Role {
   USER
   DOCTOR
   MENTOR
   ADMIN
+}
+
+enum OTPType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  TWO_FACTOR_AUTH
+  PHONE_VERIFICATION
 }
