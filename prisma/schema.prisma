@@ -13,3 +13,164 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  username      String?
+  password      String?
+  role          String   @default("USER")
+  isAnonymous   Boolean  @default(false)
+  profilePicURL String?  @default("./user_profile.png")
+  bio           String?  @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  posts         Post[]
+  comments      Comment[]
+  sessions1     ChatSession[]    @relation("User1Sessions")
+  sessions2     ChatSession[]    @relation("User2Sessions")
+  messages      ChatMessage[]
+  appointments  Appointment[]
+  doctorProfile DoctorProfile?
+  journals      Journal[]
+  notifications Notification[]
+  preferences   UserPreferences?
+  adminActions  AdminAction[]    @relation("AdminActions")
+}
+
+model Post {
+  id           String   @id @default(cuid())
+  title        String
+  content      String
+  is_anonymous Boolean  @default(true)
+  tags         String[]
+  category     String
+  image_urls   String[]
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  user     User      @relation(fields: [user_id], references: [id])
+  user_id  String
+  comments Comment[]
+}
+
+model Comment {
+  id      String @id @default(cuid())
+  post    Post   @relation(fields: [post_id], references: [id])
+  post_id String
+
+  parent_comment    Comment?  @relation("CommentReplies", fields: [parent_comment_id], references: [id])
+  parent_comment_id String?
+  replies           Comment[] @relation("CommentReplies")
+
+  content    String
+  created_at DateTime @default(now())
+
+  user    User   @relation(fields: [user_id], references: [id])
+  user_id String
+}
+
+model ChatSession {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+
+  user1     User   @relation("User1Sessions", fields: [user_1_id], references: [id])
+  user_1_id String
+
+  user2     User   @relation("User2Sessions", fields: [user_2_id], references: [id])
+  user_2_id String
+
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id      String      @id @default(cuid())
+  chat    ChatSession @relation(fields: [chat_id], references: [id])
+  chat_id String
+
+  encrypted_message String
+  created_at        DateTime @default(now())
+
+  sender    User   @relation(fields: [sender_id], references: [id])
+  sender_id String
+}
+
+model DoctorProfile {
+  id      String @id @default(cuid())
+  user    User   @relation(fields: [user_id], references: [id])
+  user_id String @unique
+
+  specialization     String
+  license_verified   Boolean @default(false)
+  availability_slots Json
+  consultation_fee   Float
+  rating             Float?
+  bio                String?
+
+  appointments Appointment[]
+}
+
+model Appointment {
+  id      String @id @default(cuid())
+  user    User   @relation(fields: [user_id], references: [id])
+  user_id String
+
+  doctor    DoctorProfile @relation(fields: [doctor_id], references: [id])
+  doctor_id String
+
+  slot_datetime DateTime
+  status        String
+  payment_id    String
+  created_at    DateTime @default(now())
+}
+
+model Journal {
+  id      String @id @default(cuid())
+  user    User   @relation(fields: [user_id], references: [id])
+  user_id String
+
+  entry_date DateTime
+  mood       String
+  content    String
+  tags       String[]
+  created_at DateTime @default(now())
+}
+
+model Notification {
+  id      String @id @default(cuid())
+  user    User   @relation(fields: [user_id], references: [id])
+  user_id String
+
+  type         String
+  reference_id String
+  is_read      Boolean  @default(false)
+  created_at   DateTime @default(now())
+}
+
+model AdminAction {
+  id       String @id @default(cuid())
+  admin    User   @relation("AdminActions", fields: [admin_id], references: [id])
+  admin_id String
+
+  action    String
+  target_id String
+  timestamp DateTime @default(now())
+  notes     String?
+}
+
+model UserPreferences {
+  user    User   @relation(fields: [user_id], references: [id])
+  user_id String @id
+
+  illness_tags     String[]
+  mood_tags        String[]
+  match_preference String
+}
+
+enum Role {
+  USER
+  DOCTOR
+  MENTOR
+  ADMIN
+}
