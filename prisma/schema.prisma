@@ -26,8 +26,10 @@ model User {
   isAnonymous     Boolean   @default(false)
   profilePicURL   String?   @default("./user_profile.png")
   bio             String?   @default("")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  refreshToken       String?
+  refreshTokenExpiry DateTime?
 
   posts         Post[]
   comments      Comment[]
