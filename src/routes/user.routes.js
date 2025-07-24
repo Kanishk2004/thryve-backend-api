@@ -4,15 +4,19 @@ import {
 	login,
 	logout,
 	refreshTokens,
+	sendVerificationEmail,
 } from '../controllers/user.controller.js';
 import { authenticateToken } from '../middlewares/auth.js';
 
 const router = Router();
 
 // User Authentication Routes
-router.route('/register').post(registerUser);
-router.route('/login').post(login);
-router.route('/logout').post(authenticateToken, logout);
-router.route('/refresh-tokens').post(refreshTokens);
+router.route('/auth/register').post(registerUser);
+router.route('/auth/login').post(login);
+router.route('/auth/logout').post(authenticateToken, logout);
+router.route('/auth/refresh-tokens').post(refreshTokens);
+router
+	.route('/auth/send-verification-email')
+	.post(authenticateToken, sendVerificationEmail);
 
 export default router;

@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 
 const AccessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const RefreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
+const EmailVerificationSecret = process.env.EMAIL_VERIFICATION_SECRET;
 const AccessTokenExpiry = '15m';
 const RefreshTokenExpiry = '7d';
 
@@ -15,6 +16,12 @@ const generateAccessToken = (user) => {
 const generateRefreshToken = (user) => {
 	return jwt.sign({ id: user.id, email: user.email }, RefreshTokenSecret, {
 		expiresIn: RefreshTokenExpiry,
+	});
+};
+
+const emailVerificationToken = (user) => {
+	return jwt.sign({ id: user.id, email: user.email }, EmailVerificationSecret, {
+		expiresIn: '6h',
 	});
 };
 
@@ -34,4 +41,4 @@ const verifyRefreshToken = (token) => {
 	}
 };
 
-export { generateAccessToken, generateRefreshToken, verifyToken, verifyRefreshToken };
+export { generateAccessToken, generateRefreshToken, verifyToken, verifyRefreshToken, emailVerificationToken };

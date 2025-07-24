@@ -3,10 +3,12 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../db/index.js';
 import {
+	emailVerificationToken,
 	generateAccessToken,
 	generateRefreshToken,
 	verifyRefreshToken,
 } from '../utils/jwt.js';
+import { sendEmail } from '../utils/sendEmail.js';
 
 // Auth Controllers
 
@@ -101,7 +103,7 @@ const registerUser = AsyncHandler(async (req, res) => {
 		},
 	});
 
-	// Set refresh token as httpOnly cookie
+	// Set refresh token as httpOnly cookie (secure)
 	res.cookie('refreshToken', refreshToken, {
 		httpOnly: true,
 		sameSite: 'Strict',
@@ -109,6 +111,7 @@ const registerUser = AsyncHandler(async (req, res) => {
 		secure: process.env.NODE_ENV === 'production',
 	});
 
+	// Access token sent in response body only (client handles storage)
 	return res
 		.status(201)
 		.json(
@@ -190,6 +193,7 @@ const login = AsyncHandler(async (req, res) => {
 		secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
 	});
 
+	// Access token sent in response body only (client handles storage)
 	return res
 		.status(200)
 		.json(
@@ -270,7 +274,7 @@ const refreshTokens = AsyncHandler(async (req, res) => {
 		},
 	});
 
-	// Update cookie
+	// Update refresh token cookie
 	res.cookie('refreshToken', newRefreshToken, {
 		httpOnly: true,
 		sameSite: 'Strict',
@@ -278,6 +282,7 @@ const refreshTokens = AsyncHandler(async (req, res) => {
 		secure: process.env.NODE_ENV === 'production',
 	});
 
+	// Send new access token in response body (client handles storage)
 	return res
 		.status(200)
 		.json(
@@ -285,4 +290,24 @@ const refreshTokens = AsyncHandler(async (req, res) => {
 		);
 });
 
-export { registerUser, login, logout, refreshTokens };
+const sendVerificationEmail = AsyncHandler(async (req, res) => {
+	const { email } = req.user;
+	const jwtToken = emailVerificationToken(req.user);
+
+	if (!email) {
+		return res.status(400).json(new ApiResponse(400, 'Email is required'));
+	}
+
+	try {
+		const result = await sendEmail(email, jwtToken);
+		return res
+			.status(200)
+			.json(new ApiResponse(200, result, 'Email sent successfully'));
+	} catch (error) {
+		return res
+			.status(500)
+			.json(new ApiResponse(500, null, 'Failed to send email'));
+	}
+});
+
+export { registerUser, login, logout, refreshTokens, sendVerificationEmail };
