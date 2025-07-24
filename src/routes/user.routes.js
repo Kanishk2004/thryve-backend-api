@@ -17,7 +17,7 @@ router.route('/auth/login').post(login);
 router.route('/auth/logout').post(authenticateToken, logout);
 router.route('/auth/refresh-tokens').post(refreshTokens);
 router
-	.route('/auth/send-verification-email')
+	.route('/auth/email-verification')
 	.post(authenticateToken, sendVerificationEmail)
 	.patch(authenticateToken, verifyEmail);
 
