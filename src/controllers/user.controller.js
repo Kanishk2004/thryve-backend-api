@@ -6,6 +6,7 @@ import {
 	emailVerificationToken,
 	generateAccessToken,
 	generateRefreshToken,
+	verifyEmailToken,
 	verifyRefreshToken,
 } from '../utils/jwt.js';
 import { sendEmail } from '../utils/sendEmail.js';
@@ -310,4 +311,35 @@ const sendVerificationEmail = AsyncHandler(async (req, res) => {
 	}
 });
 
-export { registerUser, login, logout, refreshTokens, sendVerificationEmail };
+const verifyEmail = AsyncHandler(async (req, res) => {
+	const { token } = req.query;
+
+	if (!token) {
+		return res.status(400).json(new ApiResponse(400, 'Token is required'));
+	}
+
+	const decoded = verifyEmailToken(token);
+	if (!decoded) {
+		return res
+			.status(400)
+			.json(new ApiResponse(400, 'Invalid or expired token'));
+	}
+
+	await prisma.user.update({
+		where: { id: decoded.id },
+		data: { isEmailVerified: true },
+	});
+
+	return res
+		.status(200)
+		.json(new ApiResponse(200, null, 'Email verified successfully'));
+});
+
+export {
+	registerUser,
+	login,
+	logout,
+	refreshTokens,
+	sendVerificationEmail,
+	verifyEmail,
+};

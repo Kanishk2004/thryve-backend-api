@@ -25,6 +25,14 @@ const emailVerificationToken = (user) => {
 	});
 };
 
+const verifyEmailToken = (token) => {
+	try {
+		return jwt.verify(token, EmailVerificationSecret);
+	} catch (error) {
+		return null;
+	}
+};
+
 const verifyToken = (token) => {
 	try {
 		return jwt.verify(token, AccessTokenSecret);
@@ -41,4 +49,11 @@ const verifyRefreshToken = (token) => {
 	}
 };
 
-export { generateAccessToken, generateRefreshToken, verifyToken, verifyRefreshToken, emailVerificationToken };
+export {
+	generateAccessToken,
+	generateRefreshToken,
+	verifyToken,
+	verifyRefreshToken,
+	emailVerificationToken,
+	verifyEmailToken,
+};

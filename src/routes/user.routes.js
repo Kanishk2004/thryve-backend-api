@@ -5,6 +5,7 @@ import {
 	logout,
 	refreshTokens,
 	sendVerificationEmail,
+	verifyEmail,
 } from '../controllers/user.controller.js';
 import { authenticateToken } from '../middlewares/auth.js';
 
@@ -17,6 +18,7 @@ router.route('/auth/logout').post(authenticateToken, logout);
 router.route('/auth/refresh-tokens').post(refreshTokens);
 router
 	.route('/auth/send-verification-email')
-	.post(authenticateToken, sendVerificationEmail);
+	.post(authenticateToken, sendVerificationEmail)
+	.patch(authenticateToken, verifyEmail);
 
 export default router;
