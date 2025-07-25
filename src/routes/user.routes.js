@@ -6,6 +6,8 @@ import {
 	refreshTokens,
 	sendVerificationEmail,
 	verifyEmail,
+	forgotPassword,
+	resetPassword,
 } from '../controllers/user.controller.js';
 import { authenticateToken } from '../middlewares/auth.js';
 
@@ -20,5 +22,6 @@ router
 	.route('/auth/email-verification')
 	.post(authenticateToken, sendVerificationEmail)
 	.patch(authenticateToken, verifyEmail);
+router.route('/auth/forgot-password').post(forgotPassword).patch(resetPassword);
 
 export default router;

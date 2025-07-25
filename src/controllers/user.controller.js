@@ -6,10 +6,12 @@ import {
 	emailVerificationToken,
 	generateAccessToken,
 	generateRefreshToken,
+	resetPasswordToken,
 	verifyEmailToken,
 	verifyRefreshToken,
+	verifyResetPasswordToken,
 } from '../utils/jwt.js';
-import { sendEmail } from '../utils/sendEmail.js';
+import { sendEmail, sendPasswordResetEmail } from '../utils/sendEmail.js';
 
 // Auth Controllers
 
@@ -69,7 +71,9 @@ const registerUser = AsyncHandler(async (req, res) => {
 	const hashedPassword = await bcrypt.hash(password, salt);
 
 	if (!hashedPassword) {
-		return res.status(500).json(new ApiResponse(500, 'Error hashing password'));
+		return res
+			.status(500)
+			.json(new ApiResponse(500, null, 'Error hashing password'));
 	}
 
 	const user = await prisma.user.create({
@@ -156,14 +160,14 @@ const login = AsyncHandler(async (req, res) => {
 	if (!user) {
 		return res
 			.status(401)
-			.json(new ApiResponse(401, 'Invalid email or password'));
+			.json(new ApiResponse(401, null, 'Invalid email or password'));
 	}
 
 	const isMatch = await bcrypt.compare(password, user.password);
 	if (!isMatch) {
 		return res
 			.status(401)
-			.json(new ApiResponse(401, 'Invalid email or password'));
+			.json(new ApiResponse(401, null, 'Invalid email or password'));
 	}
 
 	// Remove password from user object for response
@@ -176,7 +180,7 @@ const login = AsyncHandler(async (req, res) => {
 	if (!refreshToken) {
 		return res
 			.status(500)
-			.json(new ApiResponse(500, 'Error generating refresh token'));
+			.json(new ApiResponse(500, null, 'Error generating refresh token'));
 	}
 
 	await prisma.user.update({
@@ -335,6 +339,67 @@ const verifyEmail = AsyncHandler(async (req, res) => {
 		.json(new ApiResponse(200, null, 'Email verified successfully'));
 });
 
+const forgotPassword = AsyncHandler(async (req, res) => {
+	const { email } = req.body;
+
+	if (!email) {
+		return res.status(400).json(new ApiResponse(400, 'Email is required'));
+	}
+
+	const user = await prisma.user.findUnique({ where: { email } });
+	if (!user) {
+		return res.status(404).json(new ApiResponse(404, 'User not found'));
+	}
+
+	const token = resetPasswordToken(user);
+	await sendPasswordResetEmail(email, token);
+
+	return res
+		.status(200)
+		.json(new ApiResponse(200, null, 'Password reset email sent'));
+});
+
+const resetPassword = AsyncHandler(async (req, res) => {
+	const { token } = req.query;
+	const { newPassword } = req.body;
+
+	if (!token || !newPassword) {
+		return res
+			.status(400)
+			.json(new ApiResponse(400, 'Token and new password are required'));
+	}
+
+	const decoded = verifyResetPasswordToken(token);
+	if (!decoded) {
+		return res
+			.status(400)
+			.json(new ApiResponse(400, 'Invalid or expired token'));
+	}
+
+	const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+	if (!user) {
+		return res.status(404).json(new ApiResponse(404, 'User not found'));
+	}
+
+	const salt = await bcrypt.genSalt(10);
+	const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+	if (!hashedPassword) {
+		return res
+			.status(500)
+			.json(new ApiResponse(500, null, 'Error hashing password'));
+	}
+
+	await prisma.user.update({
+		where: { id: user.id },
+		data: { password: hashedPassword },
+	});
+
+	return res
+		.status(200)
+		.json(new ApiResponse(200, null, 'Password reset successfully'));
+});
+
 export {
 	registerUser,
 	login,
@@ -342,4 +407,6 @@ export {
 	refreshTokens,
 	sendVerificationEmail,
 	verifyEmail,
+	forgotPassword,
+	resetPassword,
 };
