@@ -8,6 +8,7 @@ import {
 	verifyEmail,
 	forgotPassword,
 	resetPassword,
+	getProfile,
 } from '../controllers/user.controller.js';
 import { authenticateToken } from '../middlewares/auth.js';
 
@@ -23,5 +24,8 @@ router
 	.post(authenticateToken, sendVerificationEmail)
 	.patch(authenticateToken, verifyEmail);
 router.route('/auth/forgot-password').post(forgotPassword).patch(resetPassword);
+
+// User Profile Routes
+router.route('/profile').get(authenticateToken, getProfile);
 
 export default router;

@@ -16,16 +16,6 @@ import { sendEmail, sendPasswordResetEmail } from '../utils/sendEmail.js';
 // Auth Controllers
 
 const registerUser = AsyncHandler(async (req, res) => {
-	//get username, fullName, email, avatar, gender from req.body
-	//validate if all fields are provided
-	//check if user already exists - email and username must be unique
-	//check for avatar OR upload noAvatar.png from backend
-	//then upload image file to cloudinary
-	//create user object - create entry in db
-	//remove password and refreshToken from response
-	//check if user created successfully?
-	//return user
-
 	const { username, email, password } = req.body;
 
 	if (!username || !email || !password) {
@@ -129,13 +119,6 @@ const registerUser = AsyncHandler(async (req, res) => {
 });
 
 const login = AsyncHandler(async (req, res) => {
-	// Implement login logic here
-	// Validate email and password
-	// Check if user exists
-	// Compare password with hashed password
-	// Generate JWT token
-	// Return user data excluding password and refreshToken
-
 	const { email, password } = req.body;
 	if (!email || !password) {
 		return res
@@ -400,6 +383,34 @@ const resetPassword = AsyncHandler(async (req, res) => {
 		.json(new ApiResponse(200, null, 'Password reset successfully'));
 });
 
+// User Profile Controllers
+
+const getProfile = AsyncHandler(async (req, res) => {
+	const userId = req.user.id; // From auth middleware
+
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: {
+			id: true,
+			email: true,
+			isEmailVerified: true,
+			username: true,
+			role: true,
+			bio: true,
+			profilePicURL: true,
+			createdAt: true,
+		},
+	});
+
+	if (!user) {
+		return res.status(404).json(new ApiResponse(404, 'User not found'));
+	}
+
+	return res
+		.status(200)
+		.json(new ApiResponse(200, user, 'User profile fetched'));
+});
+
 export {
 	registerUser,
 	login,
@@ -409,4 +420,5 @@ export {
 	verifyEmail,
 	forgotPassword,
 	resetPassword,
+	getProfile,
 };
