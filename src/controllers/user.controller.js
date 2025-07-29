@@ -12,6 +12,7 @@ import {
 	verifyResetPasswordToken,
 } from '../utils/jwt.js';
 import { sendEmail, sendPasswordResetEmail } from '../utils/sendEmail.js';
+import { uploadToCloudinary } from '../utils/cloudinary.js';
 
 // Auth Controllers
 
@@ -383,6 +384,47 @@ const resetPassword = AsyncHandler(async (req, res) => {
 		.json(new ApiResponse(200, null, 'Password reset successfully'));
 });
 
+const changePassword = AsyncHandler(async (req, res) => {
+	const { currentPassword, newPassword } = req.body;
+	const userId = req.user.id; // From auth middleware
+
+	if (!currentPassword || !newPassword) {
+		return res
+			.status(400)
+			.json(new ApiResponse(400, 'Current and new passwords are required'));
+	}
+
+	const user = await prisma.user.findUnique({ where: { id: userId } });
+	if (!user) {
+		return res.status(404).json(new ApiResponse(404, null, 'User not found'));
+	}
+
+	const isMatch = await bcrypt.compare(currentPassword, user.password);
+	if (!isMatch) {
+		return res
+			.status(401)
+			.json(new ApiResponse(401, null, 'Current password is incorrect'));
+	}
+
+	const salt = await bcrypt.genSalt(10);
+	const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
+	if (!hashedNewPassword) {
+		return res
+			.status(500)
+			.json(new ApiResponse(500, null, 'Error hashing new password'));
+	}
+
+	await prisma.user.update({
+		where: { id: userId },
+		data: { password: hashedNewPassword },
+	});
+
+	return res
+		.status(200)
+		.json(new ApiResponse(200, null, 'Password changed successfully'));
+});
+
 // User Profile Controllers
 
 const getProfile = AsyncHandler(async (req, res) => {
@@ -411,6 +453,42 @@ const getProfile = AsyncHandler(async (req, res) => {
 		.json(new ApiResponse(200, user, 'User profile fetched'));
 });
 
+const updateAvatar = AsyncHandler(async (req, res) => {
+	const userId = req.user.id; // From auth middleware
+	// Logic to update profile picture
+	const localFilePath = req.file?.path; // Path to the uploaded file
+	if (!localFilePath) {
+		return res
+			.status(400)
+			.json(new ApiResponse(400, null, 'No file uploaded or file is invalid'));
+	}
+	console.log(localFilePath);
+	const cloudinaryUrl = await uploadToCloudinary(localFilePath);
+	if (!cloudinaryUrl) {
+		return res
+			.status(500)
+			.json(new ApiResponse(500, null, 'Error uploading image to Cloudinary'));
+	}
+
+	await prisma.user.update({
+		where: { id: userId },
+		data: {
+			avatarURL: cloudinaryUrl.secure_url,
+			avatarPublicId: cloudinaryUrl.public_id,
+		},
+	});
+
+	return res
+		.status(200)
+		.json(
+			new ApiResponse(
+				200,
+				{ avatarURL: cloudinaryUrl.secure_url },
+				'Avatar updated successfully'
+			)
+		);
+});
+
 export {
 	registerUser,
 	login,
@@ -421,4 +499,6 @@ export {
 	forgotPassword,
 	resetPassword,
 	getProfile,
+	changePassword,
+	updateAvatar,
 };

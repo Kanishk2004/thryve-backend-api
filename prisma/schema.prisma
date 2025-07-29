@@ -15,17 +15,18 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
-  isEmailVerified Boolean   @default(false)
-  username        String?
-  password        String?
-  gender          String?
-  dateOfBirth     DateTime?
-  role            Role      @default(USER)
-  isAnonymous     Boolean   @default(false)
-  profilePicURL   String?   @default("./user_profile.png")
-  bio             String?   @default("")
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  isEmailVerified    Boolean   @default(false)
+  username           String?
+  password           String?
+  gender             String?
+  dateOfBirth        DateTime?
+  role               Role      @default(USER)
+  isAnonymous        Boolean   @default(false)
+  avatarURL          String?   @default("https://res.cloudinary.com/nexweb/image/upload/v1753801741/thryve/avatar/user_profile_gc8znx.png")
+  avatarPublicId     String?   @default("user_profile.png")
+  bio                String?   @default("")
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   refreshToken       String?
