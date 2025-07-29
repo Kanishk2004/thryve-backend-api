@@ -11,7 +11,9 @@ const authenticateToken = async (req, res, next) => {
 		if (!token) {
 			return res
 				.status(401)
-				.json(new ApiResponse(401, 'Access token required in Authorization header'));
+				.json(
+					new ApiResponse(401, 'Access token required in Authorization header')
+				);
 		}
 
 		// Verify the token
@@ -31,6 +33,9 @@ const authenticateToken = async (req, res, next) => {
 				username: true,
 				role: true,
 				isEmailVerified: true,
+				avatarURL: true,
+				avatarPublicId: true, // Include avatarPublicId if needed
+				fullName: true, // Include fullName if it exists in the User model
 			},
 		});
 

@@ -12,7 +12,10 @@ import {
 	verifyResetPasswordToken,
 } from '../utils/jwt.js';
 import { sendEmail, sendPasswordResetEmail } from '../utils/sendEmail.js';
-import { uploadToCloudinary } from '../utils/cloudinary.js';
+import {
+	deleteFromCloudinary,
+	uploadToCloudinary,
+} from '../utils/cloudinary.js';
 
 // Auth Controllers
 
@@ -74,7 +77,7 @@ const registerUser = AsyncHandler(async (req, res) => {
 			username: true,
 			email: true,
 			isEmailVerified: true,
-			profilePicURL: true,
+			avatarURL: true,
 			role: true,
 			createdAt: true,
 			// Exclude password from response
@@ -134,8 +137,9 @@ const login = AsyncHandler(async (req, res) => {
 			username: true,
 			email: true,
 			password: true, // Need for comparison, will exclude from response
+			fullName: true,
 			isEmailVerified: true,
-			profilePicURL: true,
+			avatarURL: true,
 			role: true,
 			createdAt: true,
 		},
@@ -505,8 +509,8 @@ const updateProfile = AsyncHandler(async (req, res) => {
 		const existingUser = await prisma.user.findFirst({
 			where: {
 				username,
-				NOT: { id: userId } // Exclude current user
-			}
+				NOT: { id: userId }, // Exclude current user
+			},
 		});
 		if (existingUser) {
 			return res
@@ -554,6 +558,20 @@ const updateProfile = AsyncHandler(async (req, res) => {
 		.json(new ApiResponse(200, updatedUser, 'Profile updated successfully'));
 });
 
+const deleteAccount = AsyncHandler(async (req, res) => {
+	const userId = req.user.id; // From auth middleware
+
+	await deleteFromCloudinary(userId.avatarPublicId);
+
+	await prisma.user.delete({
+		where: { id: userId },
+	});
+
+	return res
+		.status(204)
+		.json(new ApiResponse(204, null, 'Account deleted successfully'));
+});
+
 export {
 	registerUser,
 	login,
@@ -567,4 +585,5 @@ export {
 	changePassword,
 	updateAvatar,
 	updateProfile,
+	deleteAccount,
 };

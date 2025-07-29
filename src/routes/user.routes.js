@@ -12,6 +12,7 @@ import {
 	changePassword,
 	updateAvatar,
 	updateProfile,
+	deleteAccount,
 } from '../controllers/user.controller.js';
 import { authenticateToken } from '../middlewares/auth.js';
 import { upload } from '../middlewares/multer.middleware.js';
@@ -34,7 +35,8 @@ router.route('/auth/change-password').post(authenticateToken, changePassword);
 router
 	.route('/profile')
 	.get(authenticateToken, getProfile)
-	.patch(authenticateToken, updateProfile);
+	.patch(authenticateToken, updateProfile)
+	.delete(authenticateToken, deleteAccount);
 router
 	.route('/profile/avatar')
 	.post(authenticateToken, upload.single('avatar'), updateAvatar);
