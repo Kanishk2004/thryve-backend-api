@@ -18,6 +18,7 @@ model User {
   id                 String    @id @default(cuid())
   email              String    @unique
   isEmailVerified    Boolean   @default(false)
+  fullName           String?
   username           String?
   password           String?
   gender             String?

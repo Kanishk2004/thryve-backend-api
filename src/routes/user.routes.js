@@ -11,6 +11,7 @@ import {
 	getProfile,
 	changePassword,
 	updateAvatar,
+	updateProfile,
 } from '../controllers/user.controller.js';
 import { authenticateToken } from '../middlewares/auth.js';
 import { upload } from '../middlewares/multer.middleware.js';
@@ -30,7 +31,10 @@ router.route('/auth/forgot-password').post(forgotPassword).patch(resetPassword);
 router.route('/auth/change-password').post(authenticateToken, changePassword);
 
 // User Profile Routes
-router.route('/profile').get(authenticateToken, getProfile);
+router
+	.route('/profile')
+	.get(authenticateToken, getProfile)
+	.patch(authenticateToken, updateProfile);
 router
 	.route('/profile/avatar')
 	.post(authenticateToken, upload.single('avatar'), updateAvatar);

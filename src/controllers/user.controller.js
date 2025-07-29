@@ -462,7 +462,6 @@ const updateAvatar = AsyncHandler(async (req, res) => {
 			.status(400)
 			.json(new ApiResponse(400, null, 'No file uploaded or file is invalid'));
 	}
-	console.log(localFilePath);
 	const cloudinaryUrl = await uploadToCloudinary(localFilePath);
 	if (!cloudinaryUrl) {
 		return res
@@ -489,6 +488,72 @@ const updateAvatar = AsyncHandler(async (req, res) => {
 		);
 });
 
+const updateProfile = AsyncHandler(async (req, res) => {
+	const userId = req.user.id; // From auth middleware
+	const { username, bio, fullName, gender, dateOfBirth } = req.body;
+
+	// Build update object dynamically with only provided fields
+	const updateData = {};
+
+	if (username !== undefined) {
+		if (username.length < 3) {
+			return res
+				.status(400)
+				.json(new ApiResponse(400, 'Username must be at least 3 characters'));
+		}
+		// Check if username is already taken by another user
+		const existingUser = await prisma.user.findFirst({
+			where: {
+				username,
+				NOT: { id: userId } // Exclude current user
+			}
+		});
+		if (existingUser) {
+			return res
+				.status(409)
+				.json(new ApiResponse(409, 'Username already exists'));
+		}
+		updateData.username = username;
+	}
+
+	if (bio !== undefined) updateData.bio = bio;
+	if (fullName !== undefined) updateData.fullName = fullName;
+	if (gender !== undefined) updateData.gender = gender;
+	if (dateOfBirth !== undefined) {
+		// Convert string to Date if needed
+		updateData.dateOfBirth = new Date(dateOfBirth);
+	}
+
+	// Check if there are any fields to update
+	if (Object.keys(updateData).length === 0) {
+		return res
+			.status(400)
+			.json(new ApiResponse(400, null, 'No fields to update'));
+	}
+
+	const updatedUser = await prisma.user.update({
+		where: { id: userId },
+		data: updateData,
+		select: {
+			id: true,
+			email: true,
+			isEmailVerified: true,
+			username: true,
+			role: true,
+			bio: true,
+			fullName: true,
+			gender: true,
+			dateOfBirth: true,
+			avatarURL: true,
+			createdAt: true,
+		},
+	});
+
+	return res
+		.status(200)
+		.json(new ApiResponse(200, updatedUser, 'Profile updated successfully'));
+});
+
 export {
 	registerUser,
 	login,
@@ -501,4 +566,5 @@ export {
 	getProfile,
 	changePassword,
 	updateAvatar,
+	updateProfile,
 };
