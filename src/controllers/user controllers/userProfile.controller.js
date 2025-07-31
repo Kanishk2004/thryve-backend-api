@@ -252,7 +252,9 @@ const getPublicProfile = AsyncHandler(async (req, res) => {
 	}
 
 	const user = await prisma.user.findUnique({
-		where: { id },
+		where: {
+			AND: [{ id }, { isActive: true }],
+		},
 		select: {
 			id: true,
 			username: true,
@@ -315,6 +317,7 @@ const searchUser = AsyncHandler(async (req, res) => {
 		where: {
 			AND: [
 				{ isAnonymous: false }, // Only non-anonymous users
+				{ isActive: true }, // Only active users
 				{
 					OR: [
 						{

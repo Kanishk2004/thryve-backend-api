@@ -28,9 +28,11 @@ import {
 	updateProfile,
 } from '../controllers/user controllers/userProfile.controller.js';
 import {
+	changeRole,
 	deleteUserByAdmin,
 	getAllUsers,
 	getUserById,
+	toggleUserBan,
 	updateUserByAdmin,
 } from '../controllers/user controllers/admin.controller.js';
 
@@ -71,5 +73,11 @@ router
 	.get(authenticateToken, adminOnly, getUserById)
 	.patch(authenticateToken, adminOnly, updateUserByAdmin)
 	.delete(authenticateToken, adminOnly, deleteUserByAdmin);
+router
+	.route('/admin/users/:id/change-role')
+	.patch(authenticateToken, adminOnly, changeRole);
+router
+	.route('/admin/users/:id/toggle-ban')
+	.patch(authenticateToken, adminOnly, toggleUserBan);
 
 export default router;

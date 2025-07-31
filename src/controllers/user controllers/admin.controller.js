@@ -2,9 +2,10 @@ import { AsyncHandler } from '../../utils/AsyncHandler.js';
 import { ApiResponse } from '../../utils/ApiResponse.js';
 import { prisma } from '../../db/index.js';
 import { deleteFromCloudinary } from '../../utils/cloudinary.js';
+import { ADMIN_ACTIONS, logAdminAction } from '../../utils/adminActions.js';
 
 const getAllUsers = AsyncHandler(async (req, res) => {
-	const { page = 1, limit = 10, role, verified } = req.query;
+	const { page = 1, limit = 10, role, verified, isActive } = req.query;
 
 	// Convert pagination params
 	const pageNum = parseInt(page);
@@ -25,6 +26,9 @@ const getAllUsers = AsyncHandler(async (req, res) => {
 	}
 	if (verified !== undefined) {
 		where.isEmailVerified = verified === 'true';
+	}
+	if (isActive !== undefined) {
+		where.isActive = isActive === 'true';
 	}
 
 	const users = await prisma.user.findMany({
@@ -96,7 +100,6 @@ const updateUserByAdmin = AsyncHandler(async (req, res) => {
 		username,
 		gender,
 		dateOfBirth,
-		role,
 		isAnonymous,
 		bio,
 	} = req.body;
@@ -129,12 +132,6 @@ const updateUserByAdmin = AsyncHandler(async (req, res) => {
 	if (isEmailVerified !== undefined) {
 		updateData.isEmailVerified = isEmailVerified;
 	}
-	if (role !== undefined) {
-		if (!['ADMIN', 'DOCTOR', 'USER', 'MENTOR'].includes(role.toUpperCase())) {
-			return res.status(400).json(new ApiResponse(400, null, 'Invalid role'));
-		}
-		updateData.role = role.toUpperCase();
-	}
 	if (isAnonymous !== undefined) updateData.isAnonymous = isAnonymous;
 	if (fullName !== undefined) updateData.fullName = fullName;
 	if (gender !== undefined) updateData.gender = gender;
@@ -155,9 +152,46 @@ const updateUserByAdmin = AsyncHandler(async (req, res) => {
 		data: updateData,
 	});
 
+	await logAdminAction(
+		req.user.id, // Admin ID from auth middleware
+		ADMIN_ACTIONS.USER_UPDATED,
+		id,
+		`Updated user details: ${JSON.stringify(updateData)}`
+	);
+
 	return res
 		.status(200)
 		.json(new ApiResponse(200, updatedUser, 'Profile updated successfully'));
+});
+
+const changeRole = AsyncHandler(async (req, res) => {
+	const { id } = req.params; // User ID to change role for
+	const { role } = req.body;
+
+	// Validate role
+	if (
+		!role ||
+		!['ADMIN', 'DOCTOR', 'USER', 'MENTOR'].includes(role.toUpperCase())
+	) {
+		return res.status(400).json(new ApiResponse(400, null, 'Invalid role'));
+	}
+
+	// Update user role
+	const updatedUser = await prisma.user.update({
+		where: { id },
+		data: { role: role.toUpperCase() },
+	});
+
+	await logAdminAction(
+		req.user.id, // Admin ID from auth middleware
+		ADMIN_ACTIONS.USER_ROLE_CHANGED,
+		id,
+		`Updated role to ${role.toUpperCase()}`
+	);
+
+	return res
+		.status(200)
+		.json(new ApiResponse(200, updatedUser, 'User role updated successfully'));
 });
 
 const deleteUserByAdmin = AsyncHandler(async (req, res) => {
@@ -211,6 +245,13 @@ const deleteUserByAdmin = AsyncHandler(async (req, res) => {
 	// Delete user from database
 	await prisma.user.delete({ where: { id } });
 
+	await logAdminAction(
+		adminId,
+		ADMIN_ACTIONS.USER_DELETED,
+		id,
+		`Deleted user: ${user.username} (${user.email})`
+	);
+
 	// Log the admin action (optional - for audit purposes)
 	console.log(
 		`Admin ${req.user.username} (${adminId}) deleted user ${user.username} (${id})`
@@ -231,4 +272,64 @@ const deleteUserByAdmin = AsyncHandler(async (req, res) => {
 	);
 });
 
-export { getAllUsers, getUserById, updateUserByAdmin, deleteUserByAdmin };
+const toggleUserBan = AsyncHandler(async (req, res) => {
+	const { id } = req.params;
+	const adminId = req.user.id; // Admin performing the action
+	const { reason } = req.body; // Optional reason for ban/unban
+
+	// Validate user ID
+	if (!id) {
+		return res
+			.status(400)
+			.json(new ApiResponse(400, null, 'User ID is required'));
+	}
+
+	// Check if user exists
+	const user = await prisma.user.findUnique({
+		where: { id },
+		select: {
+			id: true,
+			username: true,
+			email: true,
+			isActive: true,
+		},
+	});
+
+	if (!user) {
+		return res.status(404).json(new ApiResponse(404, null, 'User not found'));
+	}
+
+	// Toggle ban status
+	const updatedUser = await prisma.user.update({
+		where: { id },
+		data: { isActive: !user.isActive },
+	});
+
+	await logAdminAction(
+		adminId,
+		user.isActive ? ADMIN_ACTIONS.USER_BANNED : ADMIN_ACTIONS.USER_UNBANNED,
+		id,
+		`Reason: ${reason || 'No reason provided'}`
+	);
+
+	return res
+		.status(200)
+		.json(
+			new ApiResponse(
+				200,
+				updatedUser,
+				user.isActive
+					? 'User banned successfully'
+					: 'User unbanned successfully'
+			)
+		);
+});
+
+export {
+	getAllUsers,
+	getUserById,
+	updateUserByAdmin,
+	changeRole,
+	deleteUserByAdmin,
+	toggleUserBan,
+};

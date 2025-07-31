@@ -36,11 +36,24 @@ const authenticateToken = async (req, res, next) => {
 				avatarURL: true,
 				avatarPublicId: true, // Include avatarPublicId if needed
 				fullName: true, // Include fullName if it exists in the User model
+				isActive: true, // Include isActive status
 			},
 		});
 
 		if (!user) {
 			return res.status(403).json(new ApiResponse(403, 'User not found'));
+		}
+
+		if (!user.isActive) {
+			return res
+				.status(403)
+				.json(
+					new ApiResponse(
+						403,
+						null,
+						'Account has been suspended or deactivated'
+					)
+				);
 		}
 
 		// Attach user to request object

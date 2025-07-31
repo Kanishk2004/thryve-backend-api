@@ -28,6 +28,7 @@ model User {
   avatarURL          String?   @default("https://res.cloudinary.com/nexweb/image/upload/v1753801741/thryve/avatar/user_profile_gc8znx.png")
   avatarPublicId     String?   @default("user_profile.png")
   bio                String?   @default("")
+  isActive           Boolean   @default(true)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   refreshToken       String?
