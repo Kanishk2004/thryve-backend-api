@@ -31,6 +31,7 @@ import {
 	changeRole,
 	deleteUserByAdmin,
 	getAllUsers,
+	getRecentAdminActions,
 	getUserById,
 	toggleUserBan,
 	updateUserByAdmin,
@@ -79,5 +80,8 @@ router
 router
 	.route('/admin/users/:id/toggle-ban')
 	.patch(authenticateToken, adminOnly, toggleUserBan);
+router
+	.route('/admin/actions/recent')
+	.get(authenticateToken, adminOnly, getRecentAdminActions);
 
 export default router;

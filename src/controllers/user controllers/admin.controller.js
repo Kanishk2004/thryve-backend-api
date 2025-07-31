@@ -2,7 +2,11 @@ import { AsyncHandler } from '../../utils/AsyncHandler.js';
 import { ApiResponse } from '../../utils/ApiResponse.js';
 import { prisma } from '../../db/index.js';
 import { deleteFromCloudinary } from '../../utils/cloudinary.js';
-import { ADMIN_ACTIONS, logAdminAction } from '../../utils/adminActions.js';
+import {
+	ADMIN_ACTIONS,
+	logAdminAction,
+	getAdminRecentActions,
+} from '../../utils/adminActions.js';
 
 const getAllUsers = AsyncHandler(async (req, res) => {
 	const { page = 1, limit = 10, role, verified, isActive } = req.query;
@@ -325,6 +329,22 @@ const toggleUserBan = AsyncHandler(async (req, res) => {
 		);
 });
 
+const getRecentAdminActions = AsyncHandler(async (req, res) => {
+	const adminId = req.user.id; // Admin ID from auth middleware
+
+	const actions = await getAdminRecentActions(adminId, 10); // Get last 10 actions
+
+	return res
+		.status(200)
+		.json(
+			new ApiResponse(
+				200,
+				actions,
+				'Recent admin actions retrieved successfully'
+			)
+		);
+});
+
 export {
 	getAllUsers,
 	getUserById,
@@ -332,4 +352,5 @@ export {
 	changeRole,
 	deleteUserByAdmin,
 	toggleUserBan,
+	getRecentAdminActions,
 };
