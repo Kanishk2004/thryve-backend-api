@@ -8,17 +8,8 @@ import {
 	verifyEmail,
 	forgotPassword,
 	resetPassword,
-	getProfile,
 	changePassword,
-	updateAvatar,
-	updateProfile,
-	deleteAccount,
-	changeUserName,
-	togglePrivacyMode,
-	getPublicProfile,
-	searchUser,
-	getAllUsers,
-} from '../controllers/user.controller.js';
+} from '../controllers/user controllers/userAuth.controller.js';
 import { authenticateToken } from '../middlewares/auth.js';
 import {
 	authorizeRoles,
@@ -26,6 +17,22 @@ import {
 	adminOrModerator,
 } from '../middlewares/roleAuth.js';
 import { upload } from '../middlewares/multer.middleware.js';
+import {
+	changeUserName,
+	deleteAccount,
+	getProfile,
+	getPublicProfile,
+	searchUser,
+	togglePrivacyMode,
+	updateAvatar,
+	updateProfile,
+} from '../controllers/user controllers/userProfile.controller.js';
+import {
+	deleteUserByAdmin,
+	getAllUsers,
+	getUserById,
+	updateUserByAdmin,
+} from '../controllers/user controllers/admin.controller.js';
 
 const router = Router();
 
@@ -59,5 +66,10 @@ router.route('/search').get(authenticateToken, searchUser);
 
 // Admin Routes
 router.route('/admin/users').get(authenticateToken, adminOnly, getAllUsers);
+router
+	.route('/admin/users/:id')
+	.get(authenticateToken, adminOnly, getUserById)
+	.patch(authenticateToken, adminOnly, updateUserByAdmin)
+	.delete(authenticateToken, adminOnly, deleteUserByAdmin);
 
 export default router;
