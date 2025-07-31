@@ -1,0 +1,144 @@
+openapi: 3.0.0
+info:
+  title: Thryve API
+  description: API documentation for Thryve chronic illness community platform.
+  contact:
+    name: Kanishk Chandna
+    email: kanishkchandna29@gmail.com
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:51214/api/v1
+    description: Local development server
+
+paths:
+  /user/auth/register:
+    post:
+      summary: Register a new user
+      description: Allows a new user to register on the platform.
+      operationId: registerUser
+      tags:
+        - User
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: The username for the new user.
+                  example: john_doe
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the new user.
+                  example: john_doe@example.com
+                password:
+                  type: string
+                  description: The password for the new user.
+                  example: securePassword123
+      responses:
+        '201':
+          description: User registered successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User registered successfully.
+        '400':
+          description: Bad request, invalid input.
+        '409':
+          description: Conflict, user already exists.
+        '500':
+          description: Internal server error.
+  /user/auth/login:
+    post:
+      summary: User login
+      description: Allows an existing user to log in to the platform.
+      operationId: login
+      tags:
+        - User
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the user.
+                  example: john_doe@example.com
+                password:
+                  type: string
+                  description: The password of the user.
+                  example: securePassword123
+      responses:
+        '200':
+          description: User logged in successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User logged in successfully.
+        '400':
+          description: Bad request, invalid input.
+        '401':
+          description: Unauthorized, invalid credentials.
+        '500':
+          description: Internal server error.
+  /user/auth/logout:
+    post:
+      summary: User logout
+      description: Allows a user to log out of the platform.
+      operationId: logout
+      tags:
+        - User
+      responses:
+        '200':
+          description: User logged out successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User logged out successfully.
+        '401':
+          description: Unauthorized, user not authenticated.
+        '500':
+          description: Internal server error.
+
+  /user/auth/refresh-token:
+    post:
+      summary: Refresh user authentication token
+      description: Allows a user to refresh their authentication token.
+      operationId: refreshToken
+      tags:
+        - User
+      responses:
+        '200':
+          description: Token refreshed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: New authentication token.
+                    example: newAuthToken1234567890
+        '401':
+          description: Unauthorized, user not authenticated.
+        '500':
+          description: Internal server error.

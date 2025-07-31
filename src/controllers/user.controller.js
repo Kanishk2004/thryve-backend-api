@@ -572,6 +572,48 @@ const deleteAccount = AsyncHandler(async (req, res) => {
 		.json(new ApiResponse(204, null, 'Account deleted successfully'));
 });
 
+const changeUserName = AsyncHandler(async (req, res) => {
+	const userId = req.user.id; // From auth middleware
+	const { newUsername } = req.body;
+
+	if (!newUsername || newUsername.length < 3) {
+		return res
+			.status(400)
+			.json(new ApiResponse(400, null, 'Invalid username'));
+	}
+
+	// Check if username is already taken by another user
+	const existingUser = await prisma.user.findFirst({
+		where: {
+			username: newUsername,
+			NOT: { id: userId }, // Exclude current user
+		},
+	});
+	if (existingUser) {
+		return res
+			.status(409)
+			.json(new ApiResponse(409, null, 'Username already exists'));
+	}
+
+	const updatedUser = await prisma.user.update({
+		where: { id: userId },
+		data: { username: newUsername },
+		select: {
+			id: true,
+			email: true,
+			isEmailVerified: true,
+			username: true,
+			role: true,
+			bio: true,
+			createdAt: true,
+		},
+	});
+
+	return res
+		.status(200)
+		.json(new ApiResponse(200, updatedUser, 'Username updated successfully'));
+});
+
 export {
 	registerUser,
 	login,
@@ -586,4 +628,5 @@ export {
 	updateAvatar,
 	updateProfile,
 	deleteAccount,
+	changeUserName,
 };

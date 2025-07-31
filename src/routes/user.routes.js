@@ -13,6 +13,7 @@ import {
 	updateAvatar,
 	updateProfile,
 	deleteAccount,
+	changeUserName,
 } from '../controllers/user.controller.js';
 import { authenticateToken } from '../middlewares/auth.js';
 import { upload } from '../middlewares/multer.middleware.js';
@@ -40,5 +41,8 @@ router
 router
 	.route('/profile/avatar')
 	.post(authenticateToken, upload.single('avatar'), updateAvatar);
+router
+	.route('/profile/change-username')
+	.patch(authenticateToken, changeUserName);
 
 export default router;

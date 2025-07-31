@@ -33,6 +33,8 @@
 		"jsonwebtoken": "^9.0.2",
 		"mailtrap": "^4.2.0",
 		"multer": "^2.0.2",
-		"nodemailer": "^7.0.5"
+		"nodemailer": "^7.0.5",
+		"swagger-ui-express": "^5.0.1",
+		"yamljs": "^0.3.0"
 	}
 }
