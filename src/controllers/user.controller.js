@@ -810,6 +810,69 @@ const searchUser = AsyncHandler(async (req, res) => {
 	);
 });
 
+// Admin Controllers
+
+const getAllUsers = AsyncHandler(async (req, res) => {
+	const { page = 1, limit = 10, role, verified } = req.query;
+
+	// Convert pagination params
+	const pageNum = parseInt(page);
+	const limitNum = parseInt(limit);
+	const skip = (pageNum - 1) * limitNum;
+
+	// Validate pagination
+	if (pageNum < 1 || limitNum < 1 || limitNum > 100) {
+		return res
+			.status(400)
+			.json(new ApiResponse(400, null, 'Invalid pagination parameters'));
+	}
+
+	// Build filter object
+	const where = {};
+	if (role && ['ADMIN', 'MODERATOR', 'USER'].includes(role.toUpperCase())) {
+		where.role = role.toUpperCase();
+	}
+	if (verified !== undefined) {
+		where.isEmailVerified = verified === 'true';
+	}
+
+	const users = await prisma.user.findMany({
+		where,
+		select: {
+			id: true,
+			username: true,
+			email: true,
+			role: true,
+			isEmailVerified: true,
+			createdAt: true,
+		},
+		orderBy: { createdAt: 'desc' },
+		skip,
+		take: limitNum,
+	});
+
+	// Get total count for pagination
+	const totalUsers = await prisma.user.count({ where });
+	const totalPages = Math.ceil(totalUsers / limitNum);
+
+	return res.status(200).json(
+		new ApiResponse(
+			200,
+			{
+				users,
+				pagination: {
+					currentPage: pageNum,
+					totalPages,
+					totalUsers,
+					hasNext: pageNum < totalPages,
+					hasPrev: pageNum > 1,
+				},
+			},
+			`Found ${users.length} of ${totalUsers} users`
+		)
+	);
+});
+
 export {
 	registerUser,
 	login,
@@ -828,4 +891,5 @@ export {
 	togglePrivacyMode,
 	getPublicProfile,
 	searchUser,
+	getAllUsers,
 };

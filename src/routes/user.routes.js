@@ -17,8 +17,14 @@ import {
 	togglePrivacyMode,
 	getPublicProfile,
 	searchUser,
+	getAllUsers,
 } from '../controllers/user.controller.js';
 import { authenticateToken } from '../middlewares/auth.js';
+import {
+	authorizeRoles,
+	adminOnly,
+	adminOrModerator,
+} from '../middlewares/roleAuth.js';
 import { upload } from '../middlewares/multer.middleware.js';
 
 const router = Router();
@@ -50,5 +56,8 @@ router
 router.route('/profile/privacy').patch(authenticateToken, togglePrivacyMode);
 router.route('/profile/:id').get(authenticateToken, getPublicProfile);
 router.route('/search').get(authenticateToken, searchUser);
+
+// Admin Routes
+router.route('/admin/users').get(authenticateToken, adminOnly, getAllUsers);
 
 export default router;
