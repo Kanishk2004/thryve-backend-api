@@ -14,6 +14,9 @@ import {
 	updateProfile,
 	deleteAccount,
 	changeUserName,
+	togglePrivacyMode,
+	getPublicProfile,
+	searchUser,
 } from '../controllers/user.controller.js';
 import { authenticateToken } from '../middlewares/auth.js';
 import { upload } from '../middlewares/multer.middleware.js';
@@ -44,5 +47,8 @@ router
 router
 	.route('/profile/change-username')
 	.patch(authenticateToken, changeUserName);
+router.route('/profile/privacy').patch(authenticateToken, togglePrivacyMode);
+router.route('/profile/:id').get(authenticateToken, getPublicProfile);
+router.route('/search').get(authenticateToken, searchUser);
 
 export default router;
