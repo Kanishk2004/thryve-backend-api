@@ -24,10 +24,8 @@ app.use(cookieParser()); // to parse the cookies in the request
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // import routes
-import healthCheckRouter from './routes/healthCheck.routes.js';
-import userRouter from './routes/user.routes.js';
+import routes from './routes/index.js';
 
-app.use('/api/v1/healthcheck', healthCheckRouter);
-app.use('/api/v1/user', userRouter);
+app.use('/api/v1', routes);
 
 export { app };

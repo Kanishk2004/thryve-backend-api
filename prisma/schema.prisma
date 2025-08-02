@@ -53,9 +53,11 @@ model Post {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  user     User      @relation(fields: [user_id], references: [id])
-  user_id  String
-  comments Comment[]
+  user      User      @relation(fields: [user_id], references: [id])
+  user_id   String
+  comments  Comment[]
+  Illness   Illness?  @relation(fields: [illnessId], references: [id])
+  illnessId String?
 }
 
 model Comment {
@@ -162,13 +164,67 @@ model AdminAction {
   notes     String?
 }
 
-model UserPreferences {
-  user    User   @relation(fields: [user_id], references: [id])
-  user_id String @id
+model Illness {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  category    String // e.g., "autoimmune", "mental_health", "chronic_pain"
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
 
-  illness_tags     String[]
-  mood_tags        String[]
-  match_preference String
+  // Relations
+  userIllnesses UserIllnessPreference[]
+  posts         Post[] // For categorizing posts
+}
+
+model UserPreferences {
+  id      String @id @default(cuid())
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id String @unique
+
+  // Matching preferences
+  ageRangeMin     Int    @default(12)
+  ageRangeMax     Int    @default(65)
+  preferredGender Gender @default(ANY)
+
+  // Chat & Community preferences
+  isOpenToGroupChats Boolean @default(true)
+  isOpenToMentoring  Boolean @default(false)
+  isSeekingMentor    Boolean @default(false)
+
+  // Communication preferences
+  preferredChatStyle String[] // ["supportive", "practical", "casual", "deep"]
+  availabilityHours  String[] // ["morning", "afternoon", "evening", "night"]
+
+  // Privacy & Safety
+  shareAge       Boolean @default(true)
+  shareIllnesses Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  illnesses UserIllnessPreference[]
+}
+
+model UserIllnessPreference {
+  id               String          @id @default(cuid())
+  userPreference   UserPreferences @relation(fields: [userPreferenceId], references: [id], onDelete: Cascade)
+  userPreferenceId String
+
+  illness   Illness @relation(fields: [illnessId], references: [id])
+  illnessId String
+
+  // Specific preferences for this illness
+  isMainIllness     Boolean @default(false) // Primary condition
+  diagnosedYear     Int?
+  severityLevel     Int?    @default(3) // 1-5 scale
+  isSeekingSupport  Boolean @default(true)
+  isOfferingSupport Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userPreferenceId, illnessId])
 }
 
 model OTPVerification {
@@ -192,6 +248,14 @@ enum Role {
   DOCTOR
   MENTOR
   ADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+  ANY // For preferences only
 }
 
 enum OTPType {
