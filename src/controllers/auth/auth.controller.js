@@ -12,6 +12,7 @@ import {
 	verifyResetPasswordToken,
 } from '../../utils/jwt.js';
 import { sendEmail, sendPasswordResetEmail } from '../../utils/sendEmail.js';
+import { AuthService } from '../../services/auth/auth.service.js';
 
 const registerUser = AsyncHandler(async (req, res) => {
 	const { username, email, password } = req.body;
@@ -22,82 +23,14 @@ const registerUser = AsyncHandler(async (req, res) => {
 			.json(new ApiResponse(400, 'All fields are required'));
 	}
 
-	// Email validation
-	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-	if (!emailRegex.test(email)) {
-		return res
-			.status(400)
-			.json(new ApiResponse(400, 'Please provide a valid email'));
-	}
-
-	// Username validation
-	if (username.length < 3) {
-		return res
-			.status(400)
-			.json(new ApiResponse(400, 'Username must be at least 3 characters'));
-	}
-
-	const existingUser = await prisma.user.findFirst({
-		where: {
-			OR: [{ email }, { username }],
-		},
-	});
-
-	if (existingUser) {
-		const field = existingUser.email === email ? 'Email' : 'Username';
-		return res
-			.status(409)
-			.json(new ApiResponse(409, `${field} already exists`));
-	}
-	if (password.length < 6) {
-		return res
-			.status(400)
-			.json(new ApiResponse(400, 'Password must be at least 6 characters'));
-	}
-
-	const salt = await bcrypt.genSalt(10);
-	const hashedPassword = await bcrypt.hash(password, salt);
-
-	if (!hashedPassword) {
-		return res
-			.status(500)
-			.json(new ApiResponse(500, null, 'Error hashing password'));
-	}
-
-	const user = await prisma.user.create({
-		data: { username, email, password: hashedPassword },
-		select: {
-			id: true,
-			username: true,
-			email: true,
-			isEmailVerified: true,
-			avatarURL: true,
-			role: true,
-			createdAt: true,
-			// Exclude password from response
-		},
-	});
-
-	const accessToken = generateAccessToken(user);
-	const refreshToken = generateRefreshToken(user);
-	const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-	if (!refreshToken) {
-		return res
-			.status(500)
-			.json(new ApiResponse(500, 'Error generating refresh token'));
-	}
-
-	await prisma.user.update({
-		where: { id: user.id },
-		data: {
-			refreshToken,
-			refreshTokenExpiry,
-		},
+	const result = await AuthService.registerUser({
+		username,
+		email,
+		password,
 	});
 
 	// Set refresh token as httpOnly cookie (secure)
-	res.cookie('refreshToken', refreshToken, {
+	res.cookie('refreshToken', result.refreshToken, {
 		httpOnly: true,
 		sameSite: 'Strict',
 		maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
@@ -110,7 +43,7 @@ const registerUser = AsyncHandler(async (req, res) => {
 		.json(
 			new ApiResponse(
 				201,
-				{ user, accessToken },
+				{ user: result.user, accessToken: result.accessToken },
 				'User registered successfully'
 			)
 		);
