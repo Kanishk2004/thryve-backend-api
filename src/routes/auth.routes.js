@@ -22,9 +22,9 @@ router.route('/refresh-tokens').post(refreshTokens);
 router
 	.route('/send-verification')
 	.post(authenticateToken, sendVerificationEmail);
-router.route('/verify-email').get(verifyEmail);
+router.route('/verify-email/:token').get(verifyEmail);
 router.route('/forgot-password').post(forgotPassword);
-router.route('/reset-password').post(resetPassword);
+router.route('/reset-password/:token').post(resetPassword);
 router.route('/change-password').post(authenticateToken, changePassword);
 
 export default router;

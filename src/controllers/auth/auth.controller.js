@@ -1,17 +1,5 @@
 import { AsyncHandler } from '../../utils/AsyncHandler.js';
 import { ApiResponse } from '../../utils/ApiResponse.js';
-import bcrypt from 'bcryptjs';
-import { prisma } from '../../db/index.js';
-import {
-	emailVerificationToken,
-	generateAccessToken,
-	generateRefreshToken,
-	resetPasswordToken,
-	verifyEmailToken,
-	verifyRefreshToken,
-	verifyResetPasswordToken,
-} from '../../utils/jwt.js';
-import { sendEmail, sendPasswordResetEmail } from '../../utils/sendEmail.js';
 import { AuthService } from '../../services/auth/auth.service.js';
 
 const registerUser = AsyncHandler(async (req, res) => {
@@ -57,54 +45,8 @@ const login = AsyncHandler(async (req, res) => {
 			.json(new ApiResponse(400, 'Email and password are required'));
 	}
 
-	const user = await prisma.user.findUnique({
-		where: { email },
-		select: {
-			id: true,
-			username: true,
-			email: true,
-			password: true, // Need for comparison, will exclude from response
-			fullName: true,
-			isEmailVerified: true,
-			avatarURL: true,
-			role: true,
-			createdAt: true,
-		},
-	});
-
-	if (!user) {
-		return res
-			.status(401)
-			.json(new ApiResponse(401, null, 'Invalid email or password'));
-	}
-
-	const isMatch = await bcrypt.compare(password, user.password);
-	if (!isMatch) {
-		return res
-			.status(401)
-			.json(new ApiResponse(401, null, 'Invalid email or password'));
-	}
-
-	// Remove password from user object for response
-	const { password: userPassword, ...userWithoutPassword } = user;
-
-	const accessToken = generateAccessToken(userWithoutPassword);
-	const refreshToken = generateRefreshToken(userWithoutPassword);
-	const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-	if (!refreshToken) {
-		return res
-			.status(500)
-			.json(new ApiResponse(500, null, 'Error generating refresh token'));
-	}
-
-	await prisma.user.update({
-		where: { id: user.id },
-		data: {
-			refreshToken,
-			refreshTokenExpiry,
-		},
-	});
+	const result = await AuthService.login({ email, password });
+	const { userWithoutPassword, accessToken, refreshToken } = result;
 
 	res.cookie('refreshToken', refreshToken, {
 		httpOnly: true,
@@ -128,13 +70,7 @@ const login = AsyncHandler(async (req, res) => {
 const logout = AsyncHandler(async (req, res) => {
 	const userId = req.user.id; // From auth middleware
 
-	await prisma.user.update({
-		where: { id: userId },
-		data: {
-			refreshToken: null,
-			refreshTokenExpiry: null,
-		},
-	});
+	await AuthService.logout(userId);
 
 	res.clearCookie('refreshToken');
 
@@ -146,56 +82,10 @@ const logout = AsyncHandler(async (req, res) => {
 const refreshTokens = AsyncHandler(async (req, res) => {
 	const { refreshToken } = req.cookies;
 
-	if (!refreshToken) {
-		return res
-			.status(401)
-			.json(new ApiResponse(401, 'Refresh token not found'));
-	}
-
-	// Verify JWT first
-	const decoded = verifyRefreshToken(refreshToken);
-	if (!decoded) {
-		return res.status(401).json(new ApiResponse(401, 'Invalid refresh token'));
-	}
-
-	// Check if token exists in database and not expired
-	const user = await prisma.user.findFirst({
-		where: {
-			id: decoded.id,
-			refreshToken,
-			refreshTokenExpiry: { gt: new Date() },
-		},
-		select: {
-			id: true,
-			username: true,
-			email: true,
-			role: true,
-		},
-	});
-
-	if (!user) {
-		return res
-			.status(401)
-			.json(new ApiResponse(401, 'Invalid or expired refresh token'));
-	}
-
-	// Generate new access token
-	const newAccessToken = generateAccessToken(user);
-
-	// Rotate refresh token for better security
-	const newRefreshToken = generateRefreshToken(user);
-	const newRefreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-	await prisma.user.update({
-		where: { id: user.id },
-		data: {
-			refreshToken: newRefreshToken,
-			refreshTokenExpiry: newRefreshTokenExpiry,
-		},
-	});
+	const result = await AuthService.refreshTokens(refreshToken);
 
 	// Update refresh token cookie
-	res.cookie('refreshToken', newRefreshToken, {
+	res.cookie('refreshToken', result.refreshToken, {
 		httpOnly: true,
 		sameSite: 'Strict',
 		maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -206,154 +96,68 @@ const refreshTokens = AsyncHandler(async (req, res) => {
 	return res
 		.status(200)
 		.json(
-			new ApiResponse(200, { accessToken: newAccessToken }, 'Token refreshed')
+			new ApiResponse(
+				200,
+				{ accessToken: result.accessToken },
+				'Token refreshed'
+			)
 		);
 });
 
 const sendVerificationEmail = AsyncHandler(async (req, res) => {
-	const { email } = req.user;
-	const jwtToken = emailVerificationToken(req.user);
-
-	if (!email) {
-		return res.status(400).json(new ApiResponse(400, 'Email is required'));
-	}
-
-	try {
-		const result = await sendEmail(email, jwtToken);
-		return res
-			.status(200)
-			.json(new ApiResponse(200, result, 'Email sent successfully'));
-	} catch (error) {
-		return res
-			.status(500)
-			.json(new ApiResponse(500, null, 'Failed to send email'));
-	}
-});
-
-const verifyEmail = AsyncHandler(async (req, res) => {
-	const { token } = req.query;
-
-	if (!token) {
-		return res.status(400).json(new ApiResponse(400, 'Token is required'));
-	}
-
-	const decoded = verifyEmailToken(token);
-	if (!decoded) {
-		return res
-			.status(400)
-			.json(new ApiResponse(400, 'Invalid or expired token'));
-	}
-
-	await prisma.user.update({
-		where: { id: decoded.id },
-		data: { isEmailVerified: true },
-	});
+	const result = await AuthService.sendVerificationEmail(req.user);
 
 	return res
 		.status(200)
-		.json(new ApiResponse(200, null, 'Email verified successfully'));
+		.json(new ApiResponse(200, null, { message: result.message }));
+});
+
+const verifyEmail = AsyncHandler(async (req, res) => {
+	const { token } = req.params;
+
+	const result = await AuthService.verifyEmail(token);
+	if (!result) {
+		return res
+			.status(400)
+			.json(new ApiResponse(400, null, 'Invalid or expired token'));
+	}
+
+	return res
+		.status(200)
+		.json(new ApiResponse(200, result, 'Email verified successfully'));
 });
 
 const forgotPassword = AsyncHandler(async (req, res) => {
 	const { email } = req.body;
 
-	if (!email) {
-		return res.status(400).json(new ApiResponse(400, 'Email is required'));
-	}
-
-	const user = await prisma.user.findUnique({ where: { email } });
-	if (!user) {
-		return res.status(404).json(new ApiResponse(404, 'User not found'));
-	}
-
-	const token = resetPasswordToken(user);
-	await sendPasswordResetEmail(email, token);
+	const result = await AuthService.forgotPassword(email);
 
 	return res
 		.status(200)
-		.json(new ApiResponse(200, null, 'Password reset email sent'));
+		.json(new ApiResponse(200, null, { message: result.message }));
 });
 
 const resetPassword = AsyncHandler(async (req, res) => {
-	const { token } = req.query;
+	const { token } = req.params;
 	const { newPassword } = req.body;
 
-	if (!token || !newPassword) {
-		return res
-			.status(400)
-			.json(new ApiResponse(400, 'Token and new password are required'));
-	}
+	const result = await AuthService.resetPassword(token, newPassword);
 
-	const decoded = verifyResetPasswordToken(token);
-	if (!decoded) {
-		return res
-			.status(400)
-			.json(new ApiResponse(400, 'Invalid or expired token'));
-	}
-
-	const user = await prisma.user.findUnique({ where: { id: decoded.id } });
-	if (!user) {
-		return res.status(404).json(new ApiResponse(404, 'User not found'));
-	}
-
-	const salt = await bcrypt.genSalt(10);
-	const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-	if (!hashedPassword) {
-		return res
-			.status(500)
-			.json(new ApiResponse(500, null, 'Error hashing password'));
-	}
-
-	await prisma.user.update({
-		where: { id: user.id },
-		data: { password: hashedPassword },
-	});
-
-	return res
-		.status(200)
-		.json(new ApiResponse(200, null, 'Password reset successfully'));
+	return res.status(200).json(new ApiResponse(200, null, result.message));
 });
 
 const changePassword = AsyncHandler(async (req, res) => {
 	const { currentPassword, newPassword } = req.body;
-	const userId = req.user.id; // From auth middleware
 
-	if (!currentPassword || !newPassword) {
-		return res
-			.status(400)
-			.json(new ApiResponse(400, 'Current and new passwords are required'));
-	}
-
-	const user = await prisma.user.findUnique({ where: { id: userId } });
-	if (!user) {
-		return res.status(404).json(new ApiResponse(404, null, 'User not found'));
-	}
-
-	const isMatch = await bcrypt.compare(currentPassword, user.password);
-	if (!isMatch) {
-		return res
-			.status(401)
-			.json(new ApiResponse(401, null, 'Current password is incorrect'));
-	}
-
-	const salt = await bcrypt.genSalt(10);
-	const hashedNewPassword = await bcrypt.hash(newPassword, salt);
-
-	if (!hashedNewPassword) {
-		return res
-			.status(500)
-			.json(new ApiResponse(500, null, 'Error hashing new password'));
-	}
-
-	await prisma.user.update({
-		where: { id: userId },
-		data: { password: hashedNewPassword },
-	});
+	const result = await AuthService.changePassword(
+		req.user.id,
+		currentPassword,
+		newPassword
+	);
 
 	return res
 		.status(200)
-		.json(new ApiResponse(200, null, 'Password changed successfully'));
+		.json(new ApiResponse(200, null, { message: result.message }));
 });
 
 export {
