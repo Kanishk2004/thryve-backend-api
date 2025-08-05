@@ -9,7 +9,7 @@ import {
 	verifyRefreshToken,
 	verifyResetPasswordToken,
 } from '../../utils/jwt.js';
-import { sendPasswordResetEmail } from '../../utils/sendEmail.js';
+import { sendEmail, sendPasswordResetEmail } from '../../utils/sendEmail.js';
 import ApiError from '../../utils/ApiError.js';
 
 export class AuthService {
@@ -247,7 +247,9 @@ export class AuthService {
 		// Verify JWT token
 		const decoded = verifyEmailToken(token);
 		if (!decoded) {
-			throw ApiError.unauthorized('Invalid or expired email verification token');
+			throw ApiError.unauthorized(
+				'Invalid or expired email verification token'
+			);
 		}
 
 		// Use transaction for atomic operation with validation

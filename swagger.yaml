@@ -1,24 +1,807 @@
 openapi: 3.0.0
 info:
   title: Thryve API
-  description: API documentation for Thryve chronic illness community platform.
+  description: |
+    **Thryve** is a comprehensive chronic illness community platform API that provides secure authentication, user management, admin controls, and community features.
+    
+    ## Features
+    - 🔐 **JWT-based Authentication** with refresh tokens
+    - 👥 **Role-based Access Control** (USER, ADMIN, DOCTOR, MENTOR)
+    - 📧 **Email Verification** and password reset
+    - 👤 **User Profile Management** with avatar uploads
+    - 🔍 **User Search** and public profiles
+    - 🏥 **Illness Management** and user preferences
+    - 🛡️ **Admin Dashboard** with comprehensive user controls
+    - 📊 **Audit Logging** for all admin actions
+    
+    ## Authentication
+    The API uses JWT tokens for authentication:
+    - **Access Token**: Short-lived (15 minutes), sent in Authorization header
+    - **Refresh Token**: Long-lived (7 days), stored as httpOnly cookie
+    
+    ## Error Handling
+    All endpoints return standardized error responses with appropriate HTTP status codes:
+    - `400` - Bad Request (validation errors)
+    - `401` - Unauthorized (authentication required)
+    - `403` - Forbidden (insufficient permissions)
+    - `404` - Not Found
+    - `409` - Conflict (duplicate data)
+    - `422` - Unprocessable Entity (validation errors with details)
+    - `500` - Internal Server Error
+    
   contact:
     name: Kanishk Chandna
     email: kanishkchandna29@gmail.com
+    url: https://github.com/Kanishk2004
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
   version: 1.0.0
 
 servers:
   - url: http://localhost:51214/api/v1
     description: Local development server
+  - url: https://api.thryve.app/api/v1
+    description: Production server
+
+# Security Schemes
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token for authentication
+
+  schemas:
+    # Common Response Schemas
+    ApiResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status code
+          example: 200
+        data:
+          type: object
+          description: Response data
+        message:
+          type: string
+          description: Response message
+          example: "Operation completed successfully"
+        success:
+          type: boolean
+          description: Whether the operation was successful
+          example: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status code
+          example: 400
+        data:
+          type: object
+          nullable: true
+          description: Error data (usually null)
+        message:
+          type: string
+          description: Error message
+          example: "Validation failed"
+        success:
+          type: boolean
+          description: Whether the operation was successful
+          example: false
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "email"
+              message:
+                type: string
+                example: "Invalid email format"
+
+    # User Schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        username:
+          type: string
+          description: User's username
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "john.doe@example.com"
+        fullName:
+          type: string
+          nullable: true
+          description: User's full name
+          example: "John Doe"
+        bio:
+          type: string
+          nullable: true
+          description: User's biography
+          example: "Living with diabetes for 5 years"
+        role:
+          type: string
+          enum: [USER, ADMIN, DOCTOR, MENTOR]
+          description: User's role
+          example: "USER"
+        isEmailVerified:
+          type: boolean
+          description: Whether email is verified
+          example: true
+        isActive:
+          type: boolean
+          description: Whether account is active
+          example: true
+        isAnonymous:
+          type: boolean
+          description: Privacy mode status
+          example: false
+        avatarURL:
+          type: string
+          nullable: true
+          description: URL to user's avatar
+          example: "https://res.cloudinary.com/thryve/image/upload/v1234567890/avatar.jpg"
+        gender:
+          type: string
+          enum: [MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY]
+          nullable: true
+          description: User's gender
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+          description: User's date of birth
+          example: "1990-01-15"
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2024-01-15T10:30:00Z"
+
+    PublicUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        fullName:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        avatarURL:
+          type: string
+          nullable: true
+        isEmailVerified:
+          type: boolean
+
+    # Authentication Schemas
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "john.doe@example.com"
+        password:
+          type: string
+          description: User's password
+          example: "securePassword123"
+
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          description: Desired username
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "john.doe@example.com"
+        password:
+          type: string
+          minLength: 6
+          description: User's password
+          example: "securePassword123"
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        accessToken:
+          type: string
+          description: JWT access token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    # Illness Schemas
+    Illness:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Type 1 Diabetes"
+        category:
+          type: string
+          example: "Endocrine"
+        description:
+          type: string
+          example: "Autoimmune condition affecting insulin production"
+
+    # Preferences Schemas
+    UserPreferences:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        ageRangeMin:
+          type: integer
+          minimum: 12
+          maximum: 100
+          example: 18
+        ageRangeMax:
+          type: integer
+          minimum: 12
+          maximum: 100
+          example: 65
+        preferredGender:
+          type: string
+          enum: [MALE, FEMALE, ANY]
+          example: "ANY"
+        isOpenToGroupChats:
+          type: boolean
+          example: true
+        isOpenToMentoring:
+          type: boolean
+          example: false
+        isSeekingMentor:
+          type: boolean
+          example: true
+        preferredChatStyle:
+          type: array
+          items:
+            type: string
+          example: ["supportive", "casual"]
+        availabilityHours:
+          type: array
+          items:
+            type: string
+          example: ["morning", "evening"]
+        shareAge:
+          type: boolean
+          example: true
+        shareIllnesses:
+          type: boolean
+          example: true
+        illnesses:
+          type: array
+          items:
+            type: object
+            properties:
+              illnessId:
+                type: string
+                format: uuid
+              isMainIllness:
+                type: boolean
+              diagnosedYear:
+                type: integer
+              severityLevel:
+                type: integer
+                minimum: 1
+                maximum: 5
+              isSeekingSupport:
+                type: boolean
+              isOfferingSupport:
+                type: boolean
+
+    # Admin Schemas
+    AdminAction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          example: "USER_BANNED"
+        target_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+    # Pagination Schema
+    Pagination:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 10
+        totalUsers:
+          type: integer
+          example: 95
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
+
+tags:
+  - name: Health Check
+    description: System health monitoring
+  - name: Authentication
+    description: User registration, login, and token management
+  - name: User Profile
+    description: User profile management and public profiles
+  - name: User Preferences
+    description: User preferences and illness management
+  - name: Admin
+    description: Administrative operations (Admin only)
+  - name: Illnesses
+    description: Available illnesses and categories
 
 paths:
-  /user/auth/register:
+  # Health Check
+  /healthcheck:
+    get:
+      summary: Health Check
+      description: Check if the API server is running and healthy
+      operationId: healthCheck
+      tags:
+        - Health Check
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "Server is running smoothly"
+
+  # Authentication Endpoints
+  /auth/register:
     post:
       summary: Register a new user
-      description: Allows a new user to register on the platform.
+      description: Create a new user account with email verification
       operationId: registerUser
       tags:
-        - User
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthResponse'
+          headers:
+            Set-Cookie:
+              description: Refresh token stored as httpOnly cookie
+              schema:
+                type: string
+                example: "refreshToken=eyJhbGciOiJIUzI1NiI...; HttpOnly; Path=/; Max-Age=604800"
+        '400':
+          description: Bad request - validation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - email or username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      summary: User login
+      description: Authenticate user and return access token
+      operationId: login
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthResponse'
+          headers:
+            Set-Cookie:
+              description: Refresh token stored as httpOnly cookie
+              schema:
+                type: string
+        '400':
+          description: Bad request - missing fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      summary: User logout
+      description: Invalidate user session and clear tokens
+      operationId: logout
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+          headers:
+            Set-Cookie:
+              description: Refresh token cookie cleared
+              schema:
+                type: string
+                example: "refreshToken=; HttpOnly; Path=/; Max-Age=0"
+        '401':
+          description: Unauthorized - user not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh-tokens:
+    post:
+      summary: Refresh access token
+      description: Generate new access token using refresh token
+      operationId: refreshTokens
+      tags:
+        - Authentication
+      parameters:
+        - in: cookie
+          name: refreshToken
+          required: true
+          schema:
+            type: string
+          description: Refresh token from httpOnly cookie
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          accessToken:
+                            type: string
+                            example: "eyJhbGciOiJIUzI1NiI..."
+          headers:
+            Set-Cookie:
+              description: New refresh token
+              schema:
+                type: string
+        '401':
+          description: Unauthorized - invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/send-verification:
+    post:
+      summary: Send email verification
+      description: Send verification email to authenticated user
+      operationId: sendVerificationEmail
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Verification email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/verify-email/{token}:
+    get:
+      summary: Verify email address
+      description: Verify user's email using verification token
+      operationId: verifyEmail
+      tags:
+        - Authentication
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Email verification token
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/forgot-password:
+    post:
+      summary: Request password reset
+      description: Send password reset email
+      operationId: forgotPassword
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+      responses:
+        '200':
+          description: Reset email sent (or would be sent if user exists)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+                      message:
+                        type: string
+                        example: "If an account with that email exists, we have sent a password reset link"
+        '400':
+          description: Invalid email format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/reset-password/{token}:
+    post:
+      summary: Reset password
+      description: Reset user password using reset token
+      operationId: resetPassword
+      tags:
+        - Authentication
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Password reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newPassword
+              properties:
+                newPassword:
+                  type: string
+                  minLength: 6
+                  example: "newSecurePassword123"
+      responses:
+        '200':
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Invalid request or token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/change-password:
+    post:
+      summary: Change password
+      description: Change password for authenticated user
+      operationId: changePassword
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  example: "currentPassword123"
+                newPassword:
+                  type: string
+                  minLength: 6
+                  example: "newPassword123"
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad request - missing fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Current password incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # User Profile Endpoints
+  /user/profile:
+    get:
+      summary: Get user profile
+      description: Get authenticated user's profile information
+      operationId: getProfile
+      tags:
+        - User Profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update user profile
+      description: Update authenticated user's profile information
+      operationId: updateProfile
+      tags:
+        - User Profile
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -28,41 +811,336 @@ paths:
               properties:
                 username:
                   type: string
-                  description: The username for the new user.
-                  example: john_doe
-                email:
+                  minLength: 3
+                  example: "new_username"
+                bio:
                   type: string
-                  format: email
-                  description: The email address of the new user.
-                  example: john_doe@example.com
-                password:
+                  example: "Updated bio"
+                fullName:
                   type: string
-                  description: The password for the new user.
-                  example: securePassword123
+                  example: "John Smith"
+                gender:
+                  type: string
+                  enum: [MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY]
+                dateOfBirth:
+                  type: string
+                  format: date
+                  example: "1990-01-15"
       responses:
-        '201':
-          description: User registered successfully.
+        '200':
+          description: Profile updated successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: User registered successfully.
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
         '400':
-          description: Bad request, invalid input.
+          description: Validation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Conflict, user already exists.
-        '500':
-          description: Internal server error.
-  /user/auth/login:
-    post:
-      summary: User login
-      description: Allows an existing user to log in to the platform.
-      operationId: login
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete user account
+      description: Permanently delete authenticated user's account
+      operationId: deleteAccount
       tags:
-        - User
+        - User Profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+          headers:
+            Set-Cookie:
+              description: Refresh token cookie cleared
+              schema:
+                type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/profile/avatar:
+    post:
+      summary: Update user avatar
+      description: Upload and update user's profile avatar
+      operationId: updateAvatar
+      tags:
+        - User Profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+                  description: Avatar image file (JPEG, PNG)
+      responses:
+        '200':
+          description: Avatar updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          avatarURL:
+                            type: string
+                            example: "https://res.cloudinary.com/thryve/image/upload/v1234567890/avatar.jpg"
+        '400':
+          description: Invalid file or missing avatar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/profile/username:
+    patch:
+      summary: Change username
+      description: Update user's username
+      operationId: changeUserName
+      tags:
+        - User Profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newUsername
+              properties:
+                newUsername:
+                  type: string
+                  minLength: 3
+                  example: "new_username"
+      responses:
+        '200':
+          description: Username updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid username
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/profile/privacy:
+    patch:
+      summary: Toggle privacy mode
+      description: Toggle user's anonymous/public profile mode
+      operationId: togglePrivacyMode
+      tags:
+        - User Profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Privacy mode toggled successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/profile/{id}:
+    get:
+      summary: Get public profile
+      description: Get another user's public profile information
+      operationId: getPublicProfile
+      tags:
+        - User Profile
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID to fetch profile for
+      responses:
+        '200':
+          description: Public profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        oneOf:
+                          - $ref: '#/components/schemas/PublicUser'
+                          - type: null
+                      message:
+                        type: string
+                        example: "Public profile fetched successfully"
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/search:
+    get:
+      summary: Search users
+      description: Search for users by username or full name
+      operationId: searchUser
+      tags:
+        - User Profile
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          description: Search term (username or full name)
+          example: "john"
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Number of results per page
+      responses:
+        '200':
+          description: Search results retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          users:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/PublicUser'
+                          pagination:
+                            $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid search parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # User Preferences Endpoints
+  /user/preferences:
+    get:
+      summary: Get user preferences
+      description: Get authenticated user's preferences and illness information
+      operationId: getUserPreferences
+      tags:
+        - User Preferences
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserPreferences'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update user preferences
+      description: Update authenticated user's preferences and illness information
+      operationId: updateUserPreferences
+      tags:
+        - User Preferences
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -70,75 +1148,540 @@ paths:
             schema:
               type: object
               properties:
-                email:
+                ageRangeMin:
+                  type: integer
+                  minimum: 12
+                  maximum: 100
+                  example: 18
+                ageRangeMax:
+                  type: integer
+                  minimum: 12
+                  maximum: 100
+                  example: 65
+                preferredGender:
                   type: string
-                  format: email
-                  description: The email address of the user.
-                  example: john_doe@example.com
-                password:
-                  type: string
-                  description: The password of the user.
-                  example: securePassword123
+                  enum: [MALE, FEMALE, ANY]
+                  example: "ANY"
+                isOpenToGroupChats:
+                  type: boolean
+                  example: true
+                isOpenToMentoring:
+                  type: boolean
+                  example: false
+                isSeekingMentor:
+                  type: boolean
+                  example: true
+                preferredChatStyle:
+                  type: array
+                  items:
+                    type: string
+                  example: ["supportive", "casual"]
+                availabilityHours:
+                  type: array
+                  items:
+                    type: string
+                  example: ["morning", "evening"]
+                shareAge:
+                  type: boolean
+                  example: true
+                shareIllnesses:
+                  type: boolean
+                  example: true
+                illnesses:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - illnessId
+                    properties:
+                      illnessId:
+                        type: string
+                        format: uuid
+                        example: "123e4567-e89b-12d3-a456-426614174000"
+                      isMainIllness:
+                        type: boolean
+                        example: true
+                      diagnosedYear:
+                        type: integer
+                        minimum: 1900
+                        maximum: 2024
+                        example: 2020
+                      severityLevel:
+                        type: integer
+                        minimum: 1
+                        maximum: 5
+                        example: 3
+                      isSeekingSupport:
+                        type: boolean
+                        example: true
+                      isOfferingSupport:
+                        type: boolean
+                        example: false
       responses:
         '200':
-          description: User logged in successfully.
+          description: Preferences updated successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: User logged in successfully.
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserPreferences'
         '400':
-          description: Bad request, invalid input.
-        '401':
-          description: Unauthorized, invalid credentials.
-        '500':
-          description: Internal server error.
-  /user/auth/logout:
-    post:
-      summary: User logout
-      description: Allows a user to log out of the platform.
-      operationId: logout
-      tags:
-        - User
-      responses:
-        '200':
-          description: User logged out successfully.
+          description: Validation errors
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: User logged out successfully.
-        '401':
-          description: Unauthorized, user not authenticated.
-        '500':
-          description: Internal server error.
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /user/auth/refresh-token:
-    post:
-      summary: Refresh user authentication token
-      description: Allows a user to refresh their authentication token.
-      operationId: refreshToken
+  # Illnesses Endpoints
+  /illnesses/available:
+    get:
+      summary: Get available illnesses
+      description: Get list of available illnesses, optionally filtered by category or search term
+      operationId: getAvailableIllnesses
       tags:
-        - User
+        - Illnesses
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+          description: Filter by illness category
+          example: "Endocrine"
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search term for illness name or description
+          example: "diabetes"
       responses:
         '200':
-          description: Token refreshed successfully.
+          description: Available illnesses retrieved successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-                    description: New authentication token.
-                    example: newAuthToken1234567890
-        '401':
-          description: Unauthorized, user not authenticated.
-        '500':
-          description: Internal server error.
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          illnesses:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Illness'
+                          groupedIllnesses:
+                            type: object
+                            additionalProperties:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/Illness'
+                          categories:
+                            type: array
+                            items:
+                              type: string
+                            example: ["Endocrine", "Cardiovascular", "Neurological"]
+
+  # Admin Endpoints
+  /admin/users:
+    get:
+      summary: Get all users (Admin only)
+      description: Get paginated list of all users with filtering options
+      operationId: getAllUsers
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Number of users per page
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [ADMIN, DOCTOR, MENTOR, USER]
+          description: Filter by user role
+        - in: query
+          name: verified
+          schema:
+            type: boolean
+          description: Filter by email verification status
+        - in: query
+          name: isActive
+          schema:
+            type: boolean
+          description: Filter by account active status
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          users:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/User'
+                          pagination:
+                            $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/users/{id}:
+    get:
+      summary: Get user by ID (Admin only)
+      description: Get detailed information about a specific user
+      operationId: getUserById
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID to fetch
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update user by Admin
+      description: Update user information (Admin only)
+      operationId: updateUserByAdmin
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  example: "updated_username"
+                bio:
+                  type: string
+                  example: "Updated bio"
+                fullName:
+                  type: string
+                  example: "John Updated"
+                gender:
+                  type: string
+                  enum: [MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY]
+                dateOfBirth:
+                  type: string
+                  format: date
+                  example: "1990-01-15"
+                isEmailVerified:
+                  type: boolean
+                  example: true
+                isAnonymous:
+                  type: boolean
+                  example: false
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          description: Validation errors or no fields to update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete user (Admin only)
+      description: Permanently delete a user account
+      operationId: deleteUserByAdmin
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID to delete
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          deletedUser:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              username:
+                                type: string
+                              email:
+                                type: string
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required or cannot delete admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/users/{id}/change-role:
+    patch:
+      summary: Change user role (Admin only)
+      description: Change a user's role in the system
+      operationId: changeRole
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID whose role to change
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum: [ADMIN, DOCTOR, MENTOR, USER]
+                  example: "DOCTOR"
+      responses:
+        '200':
+          description: User role updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/users/{id}/toggle-ban:
+    patch:
+      summary: Toggle user ban status (Admin only)
+      description: Ban or unban a user account
+      operationId: toggleUserBan
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID to ban/unban
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Reason for ban/unban action
+                  example: "Violation of community guidelines"
+      responses:
+        '200':
+          description: User ban status toggled successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/actions/recent:
+    get:
+      summary: Get recent admin actions
+      description: Get list of recent actions performed by the admin
+      operationId: getRecentAdminActions
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Recent admin actions retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminAction'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
