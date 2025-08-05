@@ -1,30 +1,29 @@
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { AsyncHandler } from '../utils/AsyncHandler.js';
+import ApiError from '../utils/ApiError.js';
 
 const authorizeRoles = (...allowedRoles) => {
 	return AsyncHandler(async (req, res, next) => {
 		// Check if user is authenticated (should be called after authenticateToken)
 		if (!req.user) {
-			return res
-				.status(401)
-				.json(new ApiResponse(401, null, 'Authentication required'));
+			throw ApiError.unauthorized('Authentication required');
 		}
 
 		// Get user role from the authenticated user
 		const userRole = req.user.role;
 
+		// Validate that user has a role
+		if (!userRole) {
+			throw ApiError.forbidden('User role not found');
+		}
+
 		// Check if user's role is in the allowed roles
 		if (!allowedRoles.includes(userRole)) {
-			return res
-				.status(403)
-				.json(
-					new ApiResponse(
-						403,
-						`Access denied. Required role(s): ${allowedRoles.join(
-							', '
-						)}. Your role: ${userRole}`
-					)
-				);
+			throw ApiError.forbidden(
+				`Access denied. Required role(s): ${allowedRoles.join(
+					', '
+				)}. Your role: ${userRole}`
+			);
 		}
 
 		// User has the required role, proceed

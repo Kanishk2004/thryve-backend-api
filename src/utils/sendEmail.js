@@ -1,12 +1,13 @@
 import Nodemailer from 'nodemailer';
 import { MailtrapTransport } from 'mailtrap';
+import ApiError from './ApiError.js';
 
 const TOKEN = process.env.MAILTRAP_TOKEN;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://nexwebstudios.in';
 
 // Validate environment variables
 if (!TOKEN) {
-	throw new Error('MAILTRAP_TOKEN environment variable is required');
+	throw ApiError.internalServer('MAILTRAP_TOKEN environment variable is required');
 }
 
 const transport = Nodemailer.createTransport(
@@ -23,13 +24,13 @@ const sender = {
 export const sendEmail = async (reciverEmail, jwtToken) => {
 	// Validate parameters
 	if (!reciverEmail || !jwtToken) {
-		throw new Error('Email address and JWT token are required');
+		throw ApiError.badRequest('Email address and JWT token are required');
 	}
 
 	// Basic email validation
 	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 	if (!emailRegex.test(reciverEmail)) {
-		throw new Error('Invalid email address format');
+		throw ApiError.badRequest('Invalid email address format');
 	}
 	const htmlTemplate = `
 	<!DOCTYPE html>
@@ -272,20 +273,20 @@ export const sendEmail = async (reciverEmail, jwtToken) => {
 		};
 	} catch (error) {
 		console.error('Error sending email:', error);
-		throw new Error(`Failed to send verification email: ${error.message}`);
+		throw ApiError.internalServer(`Failed to send verification email: ${error.message}`);
 	}
 };
 
 export const sendPasswordResetEmail = async (reciverEmail, resetToken) => {
 	// Validate parameters
 	if (!reciverEmail || !resetToken) {
-		throw new Error('Email address and reset token are required');
+		throw ApiError.badRequest('Email address and reset token are required');
 	}
 
 	// Basic email validation
 	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 	if (!emailRegex.test(reciverEmail)) {
-		throw new Error('Invalid email address format');
+		throw ApiError.badRequest('Invalid email address format');
 	}
 
 	const htmlTemplate = `
@@ -556,6 +557,6 @@ export const sendPasswordResetEmail = async (reciverEmail, resetToken) => {
 		};
 	} catch (error) {
 		console.error('Error sending password reset email:', error);
-		throw new Error(`Failed to send password reset email: ${error.message}`);
+		throw ApiError.internalServer(`Failed to send password reset email: ${error.message}`);
 	}
 };

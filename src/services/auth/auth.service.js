@@ -10,6 +10,7 @@ import {
 	verifyResetPasswordToken,
 } from '../../utils/jwt.js';
 import { sendPasswordResetEmail } from '../../utils/sendEmail.js';
+import ApiError from '../../utils/ApiError.js';
 
 export class AuthService {
 	static async registerUser({ username, email, password }) {
@@ -34,15 +35,15 @@ export class AuthService {
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 		if (!emailRegex.test(email)) {
-			throw new Error('Please provide a valid email');
+			throw ApiError.badRequest('Please provide a valid email');
 		}
 
 		if (username.length < 3) {
-			throw new Error('Username must be at least 3 characters');
+			throw ApiError.badRequest('Username must be at least 3 characters');
 		}
 
 		if (password.length < 6) {
-			throw new Error('Password must be at least 6 characters');
+			throw ApiError.badRequest('Password must be at least 6 characters');
 		}
 	}
 
@@ -55,7 +56,7 @@ export class AuthService {
 
 		if (existingUser) {
 			const field = existingUser.email === email ? 'Email' : 'Username';
-			throw new Error(`${field} already exists`);
+			throw ApiError.conflict(`${field} already exists`);
 		}
 	}
 
@@ -64,7 +65,7 @@ export class AuthService {
 		const hashedPassword = await bcrypt.hash(password, salt);
 
 		if (!hashedPassword) {
-			throw new Error('Error hashing password');
+			throw ApiError.internalServer('Error hashing password');
 		}
 
 		return hashedPassword;
@@ -90,7 +91,7 @@ export class AuthService {
 		const refreshToken = generateRefreshToken(user);
 
 		if (!refreshToken) {
-			throw new Error('Error generating refresh token');
+			throw ApiError.internalServer('Error generating refresh token');
 		}
 
 		return { accessToken, refreshToken };
@@ -129,12 +130,12 @@ export class AuthService {
 		});
 
 		if (!user) {
-			throw new Error('Invalid email or password');
+			throw ApiError.unauthorized('Invalid email or password');
 		}
 
 		const isMatch = await bcrypt.compare(password, user.password);
 		if (!isMatch) {
-			throw new Error('Invalid email or password');
+			throw ApiError.unauthorized('Invalid email or password');
 		}
 
 		// Remove password from user object for response
@@ -161,13 +162,13 @@ export class AuthService {
 
 	static async refreshTokens(refreshToken) {
 		if (!refreshToken) {
-			throw new Error('Refresh token is required');
+			throw ApiError.badRequest('Refresh token is required');
 		}
 
 		// Verify JWT first
 		const decoded = verifyRefreshToken(refreshToken);
 		if (!decoded) {
-			throw new Error('Invalid refresh token format');
+			throw ApiError.unauthorized('Invalid refresh token format');
 		}
 
 		// Use transaction for atomic token rotation
@@ -189,7 +190,7 @@ export class AuthService {
 				});
 
 				if (!user) {
-					throw new Error('Invalid or expired refresh token');
+					throw ApiError.unauthorized('Invalid or expired refresh token');
 				}
 
 				// Generate new tokens
@@ -215,10 +216,10 @@ export class AuthService {
 			return result;
 		} catch (error) {
 			// Handle transaction errors
-			if (error.message.includes('Invalid or expired')) {
+			if (error instanceof ApiError) {
 				throw error; // Re-throw our custom errors
 			}
-			throw new Error('Failed to refresh tokens');
+			throw ApiError.internalServer('Failed to refresh tokens');
 		}
 	}
 
@@ -230,7 +231,7 @@ export class AuthService {
 			await sendEmail(email, jwtToken);
 		} catch (error) {
 			console.error('Failed to send verification email:', error);
-			throw new Error('Failed to send verification email');
+			throw ApiError.internalServer('Failed to send verification email');
 		}
 		return {
 			message: 'Verification email sent successfully',
@@ -240,13 +241,13 @@ export class AuthService {
 	static async verifyEmail(token) {
 		// Input validation
 		if (!token) {
-			throw new Error('Email verification token is required');
+			throw ApiError.badRequest('Email verification token is required');
 		}
 
 		// Verify JWT token
 		const decoded = verifyEmailToken(token);
 		if (!decoded) {
-			throw new Error('Invalid or expired email verification token');
+			throw ApiError.unauthorized('Invalid or expired email verification token');
 		}
 
 		// Use transaction for atomic operation with validation
@@ -264,12 +265,12 @@ export class AuthService {
 				});
 
 				if (!user) {
-					throw new Error('User not found');
+					throw ApiError.notFound('User not found');
 				}
 
 				// Check if email is already verified
 				if (user.isEmailVerified) {
-					throw new Error('Email is already verified');
+					throw ApiError.conflict('Email is already verified');
 				}
 
 				// Update user verification status
@@ -294,25 +295,22 @@ export class AuthService {
 			};
 		} catch (error) {
 			// Handle specific errors
-			if (
-				error.message.includes('User not found') ||
-				error.message.includes('already verified')
-			) {
+			if (error instanceof ApiError) {
 				throw error;
 			}
-			throw new Error('Failed to verify email');
+			throw ApiError.internalServer('Failed to verify email');
 		}
 	}
 
 	static async forgotPassword(email) {
 		// Reuse email validation logic from validateUser
 		if (!email) {
-			throw new Error('Email is required');
+			throw ApiError.badRequest('Email is required');
 		}
 
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 		if (!emailRegex.test(email)) {
-			throw new Error('Please provide a valid email');
+			throw ApiError.badRequest('Please provide a valid email');
 		}
 
 		try {
@@ -335,7 +333,7 @@ export class AuthService {
 					await sendPasswordResetEmail(email, resetToken);
 				} catch (emailError) {
 					console.error('Failed to send password reset email:', emailError);
-					throw new Error('Failed to send password reset email');
+					throw ApiError.internalServer('Failed to send password reset email');
 				}
 			}
 
@@ -346,31 +344,27 @@ export class AuthService {
 			};
 		} catch (error) {
 			// Handle specific errors while preserving security
-			if (
-				error.message.includes('Failed to send') ||
-				error.message.includes('Please provide a valid email') ||
-				error.message.includes('Email is required')
-			) {
+			if (error instanceof ApiError) {
 				throw error;
 			}
-			throw new Error('Failed to process password reset request');
+			throw ApiError.internalServer('Failed to process password reset request');
 		}
 	}
 
 	static async resetPassword(token, newPassword) {
 		if (!token || !newPassword) {
-			throw new Error('Token and new password are required');
+			throw ApiError.badRequest('Token and new password are required');
 		}
 		const decoded = verifyResetPasswordToken(token);
 		if (!decoded) {
-			throw new Error('Invalid or expired reset password token');
+			throw ApiError.unauthorized('Invalid or expired reset password token');
 		}
 
 		// Hash new password
 		const hashedPassword = await this.hashPassword(newPassword);
 
 		if (!hashedPassword) {
-			throw new Error('Error hashing new password');
+			throw ApiError.internalServer('Error hashing new password');
 		}
 
 		// Update user password
@@ -386,25 +380,25 @@ export class AuthService {
 
 	static async changePassword(userId, currentPassword, newPassword) {
 		if (!currentPassword || !newPassword) {
-			throw new Error('Current and new passwords are required');
+			throw ApiError.badRequest('Current and new passwords are required');
 		}
 		if (!userId) {
-			throw new Error('User ID not found');
+			throw ApiError.badRequest('User ID not found');
 		}
 		const user = await prisma.user.findUnique({ where: { id: userId } });
 		if (!user) {
-			throw new Error('User not found');
+			throw ApiError.notFound('User not found');
 		}
 
 		const isMatch = await bcrypt.compare(currentPassword, user.password);
 		if (!isMatch) {
-			throw new Error('Current password is incorrect');
+			throw ApiError.unauthorized('Current password is incorrect');
 		}
 
 		const hashedNewPassword = await this.hashPassword(newPassword);
 
 		if (!hashedNewPassword) {
-			throw new Error('Error hashing new password');
+			throw ApiError.internalServer('Error hashing new password');
 		}
 
 		await prisma.user.update({

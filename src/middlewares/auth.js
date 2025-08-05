@@ -1,6 +1,7 @@
 import { verifyToken } from '../utils/jwt.js';
 import { prisma } from '../db/index.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import ApiError from '../utils/ApiError.js';
 
 const authenticateToken = async (req, res, next) => {
 	try {
@@ -9,19 +10,13 @@ const authenticateToken = async (req, res, next) => {
 		const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
 		if (!token) {
-			return res
-				.status(401)
-				.json(
-					new ApiResponse(401, 'Access token required in Authorization header')
-				);
+			throw ApiError.unauthorized('Access token required in Authorization header');
 		}
 
 		// Verify the token
 		const decoded = verifyToken(token);
 		if (!decoded) {
-			return res
-				.status(403)
-				.json(new ApiResponse(403, 'Invalid or expired access token'));
+			throw ApiError.unauthorized('Invalid or expired access token');
 		}
 
 		// Get fresh user data
@@ -41,26 +36,29 @@ const authenticateToken = async (req, res, next) => {
 		});
 
 		if (!user) {
-			return res.status(403).json(new ApiResponse(403, 'User not found'));
+			throw ApiError.notFound('User not found');
 		}
 
 		if (!user.isActive) {
-			return res
-				.status(403)
-				.json(
-					new ApiResponse(
-						403,
-						null,
-						'Account has been suspended or deactivated'
-					)
-				);
+			throw ApiError.forbidden('Account has been suspended or deactivated');
 		}
 
 		// Attach user to request object
 		req.user = user;
 		next();
 	} catch (error) {
-		return res.status(403).json(new ApiResponse(403, 'Invalid token'));
+		// Handle ApiError instances
+		if (error instanceof ApiError) {
+			return res
+				.status(error.statusCode)
+				.json(new ApiResponse(error.statusCode, null, error.message));
+		}
+		
+		// Handle unexpected errors
+		console.error('Auth middleware error:', error);
+		return res
+			.status(500)
+			.json(new ApiResponse(500, null, 'Internal server error during authentication'));
 	}
 };
 

@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import dotenv from 'dotenv';
+import ApiError from './ApiError.js';
 
 dotenv.config();
 
@@ -11,6 +12,16 @@ cloudinary.config({
 });
 
 const uploadToCloudinary = async (filePath) => {
+	// Validate input
+	if (!filePath) {
+		throw ApiError.badRequest('File path is required for upload');
+	}
+
+	// Check if file exists
+	if (!fs.existsSync(filePath)) {
+		throw ApiError.badRequest('File does not exist at the specified path');
+	}
+
 	try {
 		const result = await cloudinary.uploader.upload(filePath, {
 			folder: 'thryve/avatar',
@@ -33,19 +44,27 @@ const uploadToCloudinary = async (filePath) => {
 		}
 		return result; // Return the entire result object
 	} catch (error) {
-		fs.unlinkSync(filePath); // Ensure the file is deleted even if upload fails
+		// Ensure the file is deleted even if upload fails
+		if (fs.existsSync(filePath)) {
+			fs.unlinkSync(filePath);
+		}
 		console.error('Error uploading to Cloudinary:', error);
-		throw new Error('Failed to upload image to Cloudinary');
+		throw ApiError.internalServer('Failed to upload image to Cloudinary');
 	}
 };
 
 const deleteFromCloudinary = async (publicId) => {
+	// Validate input
+	if (!publicId) {
+		throw ApiError.badRequest('Public ID is required for deletion');
+	}
+
 	try {
 		await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
 		return { success: true, message: 'Image deleted successfully' };
 	} catch (error) {
 		console.error('Error deleting from Cloudinary:', error);
-		throw new Error('Failed to delete image from Cloudinary');
+		throw ApiError.internalServer('Failed to delete image from Cloudinary');
 	}
 };
 
