@@ -11,6 +11,10 @@ import {
 	updateAvatar,
 	updateProfile,
 } from '../controllers/users/profile.controller.js';
+import {
+	getUserPreferences,
+	updateUserPreferences,
+} from '../controllers/users/preferences.controller.js';
 
 const router = Router();
 
@@ -27,5 +31,11 @@ router.route('/profile/username').patch(authenticateToken, changeUserName);
 router.route('/profile/privacy').patch(authenticateToken, togglePrivacyMode);
 router.route('/profile/:id').get(authenticateToken, getPublicProfile);
 router.route('/search').get(authenticateToken, searchUser);
+
+// user preferences routes
+router
+	.route('/preferences')
+	.get(authenticateToken, getUserPreferences)
+	.patch(authenticateToken, updateUserPreferences);
 
 export default router;
