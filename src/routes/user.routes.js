@@ -12,7 +12,9 @@ import {
 	updateProfile,
 } from '../controllers/users/profile.controller.js';
 import {
+	getUserIllnessPreferences,
 	getUserPreferences,
+	updateUserIllnessPreferences,
 	updateUserPreferences,
 } from '../controllers/users/preferences.controller.js';
 
@@ -37,5 +39,9 @@ router
 	.route('/preferences')
 	.get(authenticateToken, getUserPreferences)
 	.patch(authenticateToken, updateUserPreferences);
+router
+	.route('/preferences/illnesses')
+	.get(authenticateToken, getUserIllnessPreferences)
+	.patch(authenticateToken, updateUserIllnessPreferences);
 
 export default router;
