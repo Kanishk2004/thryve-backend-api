@@ -1,23 +1,21 @@
 import { Router } from 'express';
-
-const router = Router();
-
-// illnesses routes
 import {
 	addIllness,
 	deleteIllness,
 	getAvailableIllnesses,
 	updateIllness,
 } from '../controllers/illnesses/illnesses.controller.js';
-import { authenticateToken } from '../middlewares/auth.middleware.js';
+import { authenticateToken } from '../middlewares/auth.js';
 import { adminOnly } from '../middlewares/roleAuth.js';
+
+const router = Router();
 
 router.route('/available').get(getAvailableIllnesses);
 
 // admin only routes
+router.route('/').post(authenticateToken, adminOnly, addIllness);
 router
-	.route('/illness')
-	.post(authenticateToken, adminOnly, addIllness)
+	.route('/:id')
 	.patch(authenticateToken, adminOnly, updateIllness)
 	.delete(authenticateToken, adminOnly, deleteIllness);
 
