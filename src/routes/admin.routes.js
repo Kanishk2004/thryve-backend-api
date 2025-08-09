@@ -1,10 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middlewares/auth.js';
-import {
-	authorizeRoles,
-	adminOnly,
-	adminOrModerator,
-} from '../middlewares/roleAuth.js';
+import { adminOnly } from '../middlewares/roleAuth.js';
 import {
 	changeRole,
 	deleteUserByAdmin,
