@@ -14,6 +14,7 @@ Thryve is a comprehensive chronic illness community platform designed to empower
 - **Database:** PostgreSQL (hosted on [Neon](https://neon.tech/))
 - **ORM:** Prisma with custom client generation
 - **Authentication:** JWT with refresh token rotation
+- **Real-time Communication:** Socket.IO for WebSocket connections
 - **File Storage:** Cloudinary for media uploads
 - **Email Service:** Nodemailer with Mailtrap
 - **API Documentation:** Swagger/OpenAPI 3.0
@@ -29,11 +30,13 @@ thryve-backend/
 │   ├── 📁 controllers/          # Route handlers organized by feature
 │   │   ├── 📁 auth/            # Authentication & authorization
 │   │   ├── 📁 users/           # User management, profiles, matching
+│   │   ├── 📁 chat/            # Real-time messaging and chat management
 │   │   ├── 📁 admin/           # Admin dashboard functionality
 │   │   └── 📁 illnesses/       # Health condition management
 │   ├── 📁 routes/              # API route definitions
 │   ├── 📁 middlewares/         # Authentication, validation, file upload
 │   ├── 📁 services/            # Business logic layer
+│   ├── 📁 socket/              # Socket.IO server and event handlers
 │   ├── 📁 utils/               # Helper functions and utilities
 │   └── 📁 generated/           # Auto-generated Prisma client
 ├── 📁 prisma/                  # Database schema and migrations
@@ -157,6 +160,27 @@ The API will be available at `http://localhost:51214/api/v1`
 - ✅ **Advanced Filtering** options
 - ✅ **Pagination** for large result sets
 
+### 💬 Real-Time Chat System
+- ✅ **Socket.IO Integration** with JWT authentication
+- ✅ **Direct Messaging** between matched users
+- ✅ **Group Chat Support** with role management (Admin, Moderator, Member)
+- ✅ **Message Types** - Text, images, files, voice notes, system messages
+- ✅ **Real-Time Features**:
+  - Live message delivery and read receipts
+  - Typing indicators with smart timeouts
+  - Online/offline presence tracking
+  - User activity status
+- ✅ **Message Management**:
+  - Edit messages (15-minute window)
+  - Delete messages (with proper permissions)
+  - Reply to messages (threaded conversations)
+  - Search within chat history
+- ✅ **Advanced Chat Features**:
+  - Message pagination for large histories
+  - Unread message counting
+  - Chat session management
+  - Automatic delivery confirmations
+
 ### 🛡️ Admin Dashboard
 - ✅ **User Management** (view, activate, deactivate)
 - ✅ **Account Verification** controls
@@ -179,9 +203,11 @@ The API will be available at `http://localhost:51214/api/v1`
 ### 💬 Community & Communication
 - 🔄 **Community Posts** system (in development)
 - 🔄 **Comment Threads** with nested replies
-- 📅 **Real-time Chat** with WebSocket support
 - 📅 **Group Discussions** for condition-specific communities
 - 📅 **Anonymous Posting** options
+- 📅 **File Upload in Chats** - Enhanced media sharing
+- 📅 **Voice Messages** - Audio recording and playback
+- 📅 **Message Encryption** - End-to-end security
 
 ### 🩺 Healthcare Integration
 - 📅 **Doctor Profiles** and verification system
@@ -244,6 +270,8 @@ npx prisma studio      # Open Prisma Studio (database GUI)
 - **Swagger UI:** Available at `/api-docs` when server is running
 - **Complete API Reference:** See `swagger.yaml` file
 - **Matching API Guide:** `docs/MATCHING_API.md`
+- **Chat System Guide:** `docs/CHAT_SYSTEM_DESIGN.md`
+- **Chat Implementation Status:** `docs/CHAT_IMPLEMENTATION_STATUS.md`
 - **Test Users Guide:** `docs/TEST_USERS_GUIDE.md`
 
 ### Key API Endpoints
@@ -265,6 +293,20 @@ GET    /api/v1/user/preferences       # Get user preferences
 PUT    /api/v1/user/preferences       # Update user preferences
 GET    /api/v1/user/matches           # Find compatible users
 GET    /api/v1/user/search            # Search users
+
+💬 Real-Time Chat
+GET    /api/v1/chat/sessions          # Get user's chat sessions
+POST   /api/v1/chat/sessions          # Create new chat session
+GET    /api/v1/chat/sessions/:id      # Get specific chat details
+PUT    /api/v1/chat/sessions/:id      # Update chat session (groups)
+DELETE /api/v1/chat/sessions/:id      # Delete/leave chat session
+GET    /api/v1/chat/sessions/:id/messages  # Get message history
+POST   /api/v1/chat/sessions/:id/messages  # Send message (HTTP fallback)
+PUT    /api/v1/chat/messages/:id      # Edit message
+DELETE /api/v1/chat/messages/:id      # Delete message
+POST   /api/v1/chat/sessions/:id/read # Mark messages as read
+GET    /api/v1/chat/sessions/:id/unread    # Get unread count
+GET    /api/v1/chat/sessions/:id/search    # Search messages
 
 🏥 Health Management
 GET    /api/v1/illnesses             # List all illnesses
@@ -356,14 +398,16 @@ This project is currently in active development. While public contributions are 
 ### Phase 1: Core Platform (Current)
 - ✅ User authentication and management
 - ✅ Basic matching system
+- ✅ Real-time chat system with Socket.IO
 - ✅ Admin dashboard functionality
 - 🔄 Community posts and interactions
 
 ### Phase 2: Enhanced Communication (Q2 2025)
-- 📅 Real-time chat system
-- 📅 Group discussions
+- 📅 File upload in chat (images, documents)
+- 📅 Voice messages and audio calls
+- 📅 Group discussions and communities
 - 📅 Content moderation tools
-- 📅 Notification system
+- 📅 Push notification system
 
 ### Phase 3: Healthcare Integration (Q3 2025)
 - 📅 Doctor verification and profiles
@@ -382,10 +426,11 @@ This project is currently in active development. While public contributions are 
 ## ⚠️ Known Issues & Limitations
 
 ### Current Limitations
-- Real-time chat not yet implemented
+- File upload in chat not yet implemented (images/documents)
 - Payment processing integration pending
 - Mobile app API optimization needed
 - Comprehensive test suite in development
+- Voice messages and video calls pending
 
 ### Performance Considerations
 - Database queries optimized with Prisma
