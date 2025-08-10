@@ -17,6 +17,12 @@ import {
 	updateUserIllnessPreferences,
 	updateUserPreferences,
 } from '../controllers/users/preferences.controller.js';
+import {
+	findMatches,
+	getCompatibilityScore,
+	getRecommendations,
+	recordInteraction,
+} from '../controllers/users/matching.controller.js';
 
 const router = Router();
 
@@ -43,5 +49,11 @@ router
 	.route('/preferences/illnesses')
 	.get(authenticateToken, getUserIllnessPreferences)
 	.patch(authenticateToken, updateUserIllnessPreferences);
+
+// User Matching Routes
+router.route('/matches').get(authenticateToken, findMatches);
+router.route('/matches/compatibility/:targetUserId').get(authenticateToken, getCompatibilityScore);
+router.route('/recommendations').get(authenticateToken, getRecommendations);
+router.route('/interactions').post(authenticateToken, recordInteraction);
 
 export default router;

@@ -111,7 +111,7 @@ export class ProfileService {
 		const deletedUsername = 'deleted_user';
 
 		let deletedUser = await tx.user.findUnique({
-			where: { email: deletedUserEmail }
+			where: { email: deletedUserEmail },
 		});
 
 		if (!deletedUser) {
@@ -125,9 +125,10 @@ export class ProfileService {
 					isEmailVerified: true,
 					isActive: false, // Inactive account
 					bio: 'This account represents content from deleted users.',
-					avatarURL: 'https://res.cloudinary.com/nexweb/image/upload/v1753801741/thryve/avatar/user_profile_gc8znx.png',
-					avatarPublicId: 'user_profile.png'
-				}
+					avatarURL:
+						'https://res.cloudinary.com/nexweb/image/upload/v1753801741/thryve/avatar/user_profile_gc8znx.png',
+					avatarPublicId: 'user_profile.png',
+				},
 			});
 		}
 
@@ -149,77 +150,74 @@ export class ProfileService {
 			// 1. Anonymize Posts and Comments (Option B - Community Value)
 			const postsUpdated = await tx.post.updateMany({
 				where: { user_id: userId },
-				data: { 
+				data: {
 					user_id: deletedUserId,
-					is_anonymous: true // Ensure posts are marked as anonymous
-				}
+					is_anonymous: true, // Ensure posts are marked as anonymous
+				},
 			});
 
 			const commentsUpdated = await tx.comment.updateMany({
 				where: { user_id: userId },
-				data: { user_id: deletedUserId }
+				data: { user_id: deletedUserId },
 			});
 
 			// 2. Delete Personal Chat Messages (Private Data)
 			const chatMessagesDeleted = await tx.chatMessage.deleteMany({
-				where: { sender_id: userId }
+				where: { sender_id: userId },
 			});
 
 			// 3. Delete Chat Sessions where user was participant
 			const chatSessionsDeleted = await tx.chatSession.deleteMany({
 				where: {
-					OR: [
-						{ user_1_id: userId },
-						{ user_2_id: userId }
-					]
-				}
+					OR: [{ user_1_id: userId }, { user_2_id: userId }],
+				},
 			});
 
 			// 4. Delete Personal Health Data (Sensitive Information)
 			const journalsDeleted = await tx.journal.deleteMany({
-				where: { user_id: userId }
+				where: { user_id: userId },
 			});
 
 			// 5. Delete User Preferences and Illness Preferences (Personal Data)
 			// This will cascade delete UserIllnessPreference due to onDelete: Cascade
 			const preferencesDeleted = await tx.userPreferences.deleteMany({
-				where: { user_id: userId }
+				where: { user_id: userId },
 			});
 
 			// 6. Delete Personal Notifications
 			const notificationsDeleted = await tx.notification.deleteMany({
-				where: { user_id: userId }
+				where: { user_id: userId },
 			});
 
 			// 7. Delete OTP Records (Authentication Data)
 			const otpDeleted = await tx.oTPVerification.deleteMany({
-				where: { user_id: userId }
+				where: { user_id: userId },
 			});
 
 			// 8. Handle Doctor Profile if exists
 			const doctorProfile = await tx.doctorProfile.findUnique({
-				where: { user_id: userId }
+				where: { user_id: userId },
 			});
 
 			let appointmentsHandled = { deleted: 0, anonymized: 0 };
 			if (doctorProfile) {
 				// Delete future appointments (no medical value yet)
 				const futureAppointmentsDeleted = await tx.appointment.deleteMany({
-					where: { 
+					where: {
 						doctor_id: doctorProfile.id,
-						slot_datetime: { gt: new Date() }
-					}
+						slot_datetime: { gt: new Date() },
+					},
 				});
 
 				// Anonymize past appointments for medical record keeping
 				const pastAppointmentsAnonymized = await tx.appointment.updateMany({
-					where: { 
+					where: {
 						doctor_id: doctorProfile.id,
-						slot_datetime: { lte: new Date() }
+						slot_datetime: { lte: new Date() },
 					},
-					data: { 
-						user_id: deletedUserId // Anonymize patient data
-					}
+					data: {
+						user_id: deletedUserId, // Anonymize patient data
+					},
 				});
 
 				appointmentsHandled.deleted = futureAppointmentsDeleted.count;
@@ -227,25 +225,25 @@ export class ProfileService {
 
 				// Delete doctor profile
 				await tx.doctorProfile.delete({
-					where: { user_id: userId }
+					where: { user_id: userId },
 				});
 			}
 
 			// 9. Handle User Appointments (as patient)
 			const futureUserAppointments = await tx.appointment.deleteMany({
-				where: { 
+				where: {
 					user_id: userId,
-					slot_datetime: { gt: new Date() }
-				}
+					slot_datetime: { gt: new Date() },
+				},
 			});
 
 			// Anonymize past appointments for doctor records
 			const pastUserAppointments = await tx.appointment.updateMany({
-				where: { 
+				where: {
 					user_id: userId,
-					slot_datetime: { lte: new Date() }
+					slot_datetime: { lte: new Date() },
 				},
-				data: { user_id: deletedUserId }
+				data: { user_id: deletedUserId },
 			});
 
 			appointmentsHandled.deleted += futureUserAppointments.count;
@@ -257,16 +255,16 @@ export class ProfileService {
 					admin_id: deletedUserId, // Use system account
 					action: 'USER_ACCOUNT_DELETED',
 					target_id: userId,
-					notes: `User account deleted with anonymization. Posts: ${postsUpdated.count}, Comments: ${commentsUpdated.count}, Appointments anonymized: ${appointmentsHandled.anonymized}`
-				}
+					notes: `User account deleted with anonymization. Posts: ${postsUpdated.count}, Comments: ${commentsUpdated.count}, Appointments anonymized: ${appointmentsHandled.anonymized}`,
+				},
 			});
 
 			// 11. Finally delete the user account (Personal Data)
 			await tx.user.delete({
-				where: { id: userId }
+				where: { id: userId },
 			});
 
-			return { 
+			return {
 				deletedUserId: userId,
 				stats: {
 					postsAnonymized: postsUpdated.count,
@@ -276,8 +274,8 @@ export class ProfileService {
 					journalsDeleted: journalsDeleted.count,
 					notificationsDeleted: notificationsDeleted.count,
 					appointmentsDeleted: appointmentsHandled.deleted,
-					appointmentsAnonymized: appointmentsHandled.anonymized
-				}
+					appointmentsAnonymized: appointmentsHandled.anonymized,
+				},
 			};
 		});
 
@@ -291,7 +289,7 @@ export class ProfileService {
 			}
 		}
 
-		return { 
+		return {
 			message: 'Account deleted successfully with content preservation',
 			deletionSummary: {
 				personalData: 'Completely removed',
@@ -300,9 +298,9 @@ export class ProfileService {
 				chats: `${result.stats.chatMessagesDeleted} messages and ${result.stats.chatSessionsDeleted} sessions deleted`,
 				healthData: `${result.stats.journalsDeleted} journal entries deleted`,
 				appointments: `${result.stats.appointmentsDeleted} future appointments deleted, ${result.stats.appointmentsAnonymized} past appointments anonymized`,
-				adminRecords: 'Audit trail preserved'
+				adminRecords: 'Audit trail preserved',
 			},
-			anonymizedAccount: 'Content transferred to system deleted_user account'
+			anonymizedAccount: 'Content transferred to system deleted_user account',
 		};
 	}
 
@@ -410,7 +408,10 @@ export class ProfileService {
 		// Remove isActive from the response
 		const { isActive, ...userResponse } = user;
 
-		return { user: userResponse, message: 'Public profile fetched successfully' };
+		return {
+			user: userResponse,
+			message: 'Public profile fetched successfully',
+		};
 	}
 
 	static async searchUser(query, page, limit) {
