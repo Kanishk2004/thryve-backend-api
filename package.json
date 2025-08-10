@@ -9,6 +9,8 @@
 		"start": "node src/index.js",
 		"dev": "nodemon src/index.js",
 		"db:seed": "node prisma/seed.js",
+		"db:seed:test-users": "node prisma/seedTestUsers.js",
+		"test-users": "node scripts/testUsers.js",
 		"db:reset": "prisma migrate reset && npm run db:seed"
 	},
 	"keywords": [

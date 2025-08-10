@@ -7,8 +7,8 @@ import { MatchingService } from '../../services/users/matching.service.js';
  */
 const findMatches = AsyncHandler(async (req, res) => {
 	const userId = req.user.id;
-	const { 
-		page = 1, 
+	const {
+		page = 1,
 		limit = 10,
 		minAge,
 		maxAge,
@@ -16,7 +16,7 @@ const findMatches = AsyncHandler(async (req, res) => {
 		illnessCategories,
 		maxDistance,
 		isOnline,
-		sortBy = 'compatibility' // compatibility, distance, recent
+		sortBy = 'compatibility', // compatibility, distance, recent
 	} = req.query;
 
 	const filters = {
@@ -25,21 +25,19 @@ const findMatches = AsyncHandler(async (req, res) => {
 		minAge: minAge ? parseInt(minAge) : undefined,
 		maxAge: maxAge ? parseInt(maxAge) : undefined,
 		gender,
-		illnessCategories: illnessCategories ? illnessCategories.split(',') : undefined,
+		illnessCategories: illnessCategories
+			? illnessCategories.split(',')
+			: undefined,
 		maxDistance: maxDistance ? parseInt(maxDistance) : undefined,
 		isOnline: isOnline === 'true',
-		sortBy
+		sortBy,
 	};
 
 	const result = await MatchingService.findMatches(userId, filters);
 
-	return res.status(200).json(
-		new ApiResponse(
-			200,
-			result.data,
-			result.message
-		)
-	);
+	return res
+		.status(200)
+		.json(new ApiResponse(200, result.data, result.message));
 });
 
 /**
@@ -49,15 +47,20 @@ const getCompatibilityScore = AsyncHandler(async (req, res) => {
 	const userId = req.user.id;
 	const { targetUserId } = req.params;
 
-	const result = await MatchingService.getCompatibilityAnalysis(userId, targetUserId);
-
-	return res.status(200).json(
-		new ApiResponse(
-			200,
-			result.analysis,
-			'Compatibility analysis retrieved successfully'
-		)
+	const result = await MatchingService.getCompatibilityAnalysis(
+		userId,
+		targetUserId
 	);
+
+	return res
+		.status(200)
+		.json(
+			new ApiResponse(
+				200,
+				result.analysis,
+				'Compatibility analysis retrieved successfully'
+			)
+		);
 });
 
 /**
@@ -69,16 +72,18 @@ const getRecommendations = AsyncHandler(async (req, res) => {
 
 	const result = await MatchingService.getRecommendations(userId, {
 		type, // 'general', 'similar_illness', 'mentor', 'mentee'
-		limit: parseInt(limit)
+		limit: parseInt(limit),
 	});
 
-	return res.status(200).json(
-		new ApiResponse(
-			200,
-			result.recommendations,
-			'Recommendations retrieved successfully'
-		)
-	);
+	return res
+		.status(200)
+		.json(
+			new ApiResponse(
+				200,
+				result.recommendations,
+				'Recommendations retrieved successfully'
+			)
+		);
 });
 
 /**
@@ -89,20 +94,21 @@ const recordInteraction = AsyncHandler(async (req, res) => {
 	const { targetUserId, interactionType, metadata } = req.body;
 
 	// interactionType: 'view', 'like', 'pass', 'message', 'block'
-	await MatchingService.recordInteraction(userId, targetUserId, interactionType, metadata);
-
-	return res.status(200).json(
-		new ApiResponse(
-			200,
-			null,
-			'Interaction recorded successfully'
-		)
+	await MatchingService.recordInteraction(
+		userId,
+		targetUserId,
+		interactionType,
+		metadata
 	);
+
+	return res
+		.status(200)
+		.json(new ApiResponse(200, null, 'Interaction recorded successfully'));
 });
 
 export {
 	findMatches,
 	getCompatibilityScore,
 	getRecommendations,
-	recordInteraction
+	recordInteraction,
 };

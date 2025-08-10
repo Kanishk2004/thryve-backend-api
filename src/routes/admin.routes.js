@@ -10,6 +10,7 @@ import {
 	toggleUserBan,
 	updateUserByAdmin,
 } from '../controllers/admin/users.controller.js';
+import { TestUsersController } from '../controllers/admin/testUsers.controller.js';
 
 const router = Router();
 
@@ -29,5 +30,16 @@ router
 router
 	.route('/actions/recent')
 	.get(authenticateToken, adminOnly, getRecentAdminActions);
+
+// Test Users Routes (Development only)
+router
+	.route('/test-users/generate')
+	.post(authenticateToken, adminOnly, TestUsersController.generateTestUsers);
+router
+	.route('/test-users/stats')
+	.get(authenticateToken, adminOnly, TestUsersController.getTestUsersStats);
+router
+	.route('/test-users/clear')
+	.delete(authenticateToken, adminOnly, TestUsersController.clearTestUsers);
 
 export default router;
